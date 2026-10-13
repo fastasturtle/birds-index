@@ -2,6 +2,14 @@
 
 The main agent never does concrete work itself. It acts as **orchestrator**, **reviewer** and **guru**; every concrete task goes to a subagent.
 
+## Project
+
+- Trilingual (Russian / English / Latin) index of all world bird species, including recently extinct ones (post-1500).
+- Taxonomic backbone: AviList (currently v2025b). Species only, no subspecies.
+- Russian names cascade: IOC World Bird List 15.2 multilingual (names originate from Волков & Коблик, ZMMU) → eBird → Wikidata → `data/overrides.csv` (manual layer, applied last; never edit generated data by hand, put fixes in overrides).
+- Pipeline: `uv run scripts/build.py` regenerates `data/species.json`, `data/report.md` and `docs/data/species.json` from scratch. Raw AviList/IOC files live in `data/raw/`; eBird/Wikidata are cached in `data/cache/` (gitignored).
+- Site: static `docs/index.html` + `docs/data/species.json`, deployed to GitHub Pages from `docs/` on push to main. No build step, no framework.
+
 ## Roles
 
 - **Orchestrator** — splits the request into narrow tasks, picks a subagent and model for each, writes a self-contained brief (goal, scope, relevant files, what is already known, expected output), runs independent tasks in parallel, and assembles the results.
@@ -21,3 +29,4 @@ The main agent never does concrete work itself. It acts as **orchestrator**, **r
 - One subagent, one task. Don't mix "explore" and "implement" in one brief.
 - Subagents don't commit, push or take irreversible actions unless the brief says so.
 - Answer the user in the language they used.
+- Follow-up work and deferred decisions go into GitHub issues in this repository, not into chat or TODO comments.
