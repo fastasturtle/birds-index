@@ -1,32 +1,464 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Birds Index</title>
-  <style>
-    :root { color-scheme: light dark; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: #f7f7f5;
-      color: #222;
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Птицы мира</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Указатель всех видов птиц мира, включая недавно вымершие: латинские, английские и русские названия.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbf9;
+    --surface: #ffffff;
+    --text: #1d1f21;
+    --muted: #6b7075;
+    --border: #e3e3df;
+    --head-bg: #f3f3ef;
+    --row-hover: #f5f6f2;
+    --missing-bg: #fff6e0;
+    --missing-hover: #fdeec8;
+    --accent: #2f6f4f;
+    --badge-bg: #e6eef9;
+    --badge-text: #2c4f80;
+    --badge-manual-bg: #efe7f6;
+    --badge-manual-text: #5b3a7a;
+    --extinct: #8a2b2b;
+    --focus: #3b82f6;
+    --error-bg: #fdecec;
+    --error-text: #8a1f1f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141516;
+      --surface: #1b1c1e;
+      --text: #e6e6e3;
+      --muted: #9a9fa4;
+      --border: #303236;
+      --head-bg: #222326;
+      --row-hover: #232528;
+      --missing-bg: #2e2714;
+      --missing-hover: #3a311a;
+      --accent: #7cc59d;
+      --badge-bg: #22324a;
+      --badge-text: #a9c5ee;
+      --badge-manual-bg: #34263f;
+      --badge-manual-text: #d4b8ec;
+      --extinct: #e39a9a;
+      --focus: #7aa7ff;
+      --error-bg: #3a1c1c;
+      --error-text: #f2b8b8;
     }
-    @media (prefers-color-scheme: dark) {
-      body { background: #161616; color: #e8e8e8; }
-    }
-    main { text-align: center; padding: 1rem; }
-    h1 { margin: 0 0 0.5rem; font-size: 2.5rem; }
-    p { margin: 0; opacity: 0.75; }
-  </style>
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible, input:focus-visible, th button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+  header { padding: 28px 0 12px; }
+  h1 { margin: 0; font-size: 1.9rem; font-weight: 650; letter-spacing: -0.01em; }
+  .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 1.02rem; }
+  .summary { margin: 10px 0 0; font-size: 0.92rem; color: var(--muted); }
+  .summary b { color: var(--text); font-weight: 600; }
+
+  .controls {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--bg);
+    padding: 12px 0;
+    display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .search { flex: 1 1 320px; min-width: 0; }
+  .search input {
+    width: 100%;
+    font: inherit;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+  }
+  .search input:focus-visible { outline-offset: 0; border-color: var(--focus); }
+  .visually-hidden {
+    position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; white-space: nowrap; }
+  .toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+  .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .status-msg { padding: 40px 0; text-align: center; color: var(--muted); }
+  .status-msg.error {
+    color: var(--error-text); background: var(--error-bg);
+    border-radius: 8px; padding: 18px 20px; margin: 20px 0; text-align: left;
+  }
+  .status-msg.error code { font-size: 0.9em; }
+
+  .table-wrap {
+    margin-top: 12px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  table { width: 100%; border-collapse: collapse; min-width: 860px; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  thead th {
+    background: var(--head-bg);
+    font-weight: 600; font-size: 0.86rem;
+    padding: 0;
+    white-space: nowrap;
+  }
+  thead th button {
+    all: unset;
+    display: block; width: 100%;
+    padding: 8px 10px;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+  thead th button::after { content: ""; display: inline-block; width: 1em; margin-left: 4px; color: var(--muted); }
+  thead th[aria-sort="ascending"] button::after { content: "▲"; font-size: 0.7em; }
+  thead th[aria-sort="descending"] button::after { content: "▼"; font-size: 0.7em; }
+  tbody tr:hover { background: var(--row-hover); }
+  tbody tr.missing { background: var(--missing-bg); }
+  tbody tr.missing:hover { background: var(--missing-hover); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .c-seq { width: 4.5em; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .sci { font-style: italic; }
+  .sci a { color: inherit; text-decoration-color: var(--border); text-underline-offset: 2px; }
+  .sci a:hover { color: var(--accent); text-decoration-color: currentColor; }
+  .small { display: block; font-size: 0.8rem; color: var(--muted); font-style: normal; }
+  .muted { color: var(--muted); }
+  .badge {
+    display: inline-block;
+    font-size: 0.68rem; line-height: 1;
+    padding: 2px 4px; margin-left: 4px;
+    border-radius: 4px;
+    vertical-align: super;
+    background: var(--badge-bg); color: var(--badge-text);
+    cursor: help;
+  }
+  .badge.manual { background: var(--badge-manual-bg); color: var(--badge-manual-text); }
+  .c-status { white-space: nowrap; }
+  .ext { color: var(--extinct); font-weight: 600; cursor: help; }
+  .iucn { margin-left: 6px; font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .more { text-align: center; padding: 14px 0 4px; }
+  .more button {
+    font: inherit; padding: 8px 18px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text); cursor: pointer;
+  }
+  .more button:hover { border-color: var(--muted); }
+  .more .muted { display: block; font-size: 0.85rem; margin-top: 6px; }
+
+  footer { margin: 28px 0 40px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.88rem; }
+  footer h2 { font-size: 0.95rem; margin: 0 0 6px; color: var(--text); font-weight: 600; }
+  footer ul { margin: 0 0 10px; padding-left: 1.2em; }
+  footer li { margin: 2px 0; }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 1.55rem; }
+    .count { margin-left: 0; width: 100%; }
+    th, td { padding: 6px 8px; }
+  }
+</style>
 </head>
 <body>
+<div class="wrap">
+  <header>
+    <h1>Птицы мира</h1>
+    <p class="subtitle">Указатель видов: латынь · English · русский</p>
+    <p class="summary" id="summary" aria-live="polite"></p>
+  </header>
+
+  <div class="controls" role="search">
+    <div class="search">
+      <label for="q" class="visually-hidden">Поиск по латинскому, английскому или русскому названию</label>
+      <input id="q" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Поиск по латинскому, английскому или русскому названию" disabled>
+    </div>
+    <label class="toggle"><input type="checkbox" id="f-extinct" disabled> только вымершие</label>
+    <label class="toggle"><input type="checkbox" id="f-problem" disabled> только проблемные</label>
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+
   <main>
-    <h1>Birds Index</h1>
-    <p>Test page &mdash; this site is under construction.</p>
+    <div id="status" class="status-msg" role="status">Загрузка данных…</div>
+    <div class="table-wrap" id="table-wrap" hidden>
+      <table>
+        <caption class="visually-hidden">Виды птиц мира</caption>
+        <thead>
+          <tr>
+            <th scope="col" data-key="seq" aria-sort="ascending"><button type="button">№</button></th>
+            <th scope="col" data-key="sci"><button type="button">Латинское название</button></th>
+            <th scope="col" data-key="en"><button type="button">English</button></th>
+            <th scope="col" data-key="ru"><button type="button">Русский</button></th>
+            <th scope="col" data-key="family"><button type="button">Семейство</button></th>
+            <th scope="col" data-key="status"><button type="button">Статус</button></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="more" id="more" hidden>
+      <button type="button" id="more-btn">Показать ещё</button>
+      <span class="muted" id="more-info"></span>
+    </div>
   </main>
+
+  <footer>
+    <h2>Источники данных</h2>
+    <ul>
+      <li>Таксономия и английские названия: <a href="https://www.avilist.org" target="_blank" rel="noopener">AviList</a> v2025b — CC BY 4.0</li>
+      <li>Русские названия: <a href="https://worldbirdnames.org" target="_blank" rel="noopener">IOC World Bird List</a> v15.2, многоязычный список — CC BY 3.0; в его основе — Волков С.В., Коблик Е.А. «Птицы мира: рекомендуемые русские названия видов» (Зоологический музей МГУ)</li>
+      <li>Дополнительные русские названия: eBird/Clements 2025; <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> — CC0</li>
+      <li>Ссылки на виды ведут в <a href="https://avibase.bsc-eoc.org" target="_blank" rel="noopener">Avibase</a></li>
+    </ul>
+    <p>Исходный код и данные: <a href="https://github.com/fastasturtle/birds-index" target="_blank" rel="noopener">github.com/fastasturtle/birds-index</a></p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PAGE = 500;
+  var NNBSP = ' '; // narrow no-break space
+
+  var el = {
+    summary: document.getElementById('summary'),
+    q: document.getElementById('q'),
+    fExtinct: document.getElementById('f-extinct'),
+    fProblem: document.getElementById('f-problem'),
+    count: document.getElementById('count'),
+    status: document.getElementById('status'),
+    wrap: document.getElementById('table-wrap'),
+    tbody: document.getElementById('tbody'),
+    more: document.getElementById('more'),
+    moreBtn: document.getElementById('more-btn'),
+    moreInfo: document.getElementById('more-info'),
+    ths: Array.prototype.slice.call(document.querySelectorAll('thead th[data-key]'))
+  };
+
+  var data = [];
+  var matched = [];
+  var shown = 0;
+  var sortKey = 'seq';
+  var sortDir = 1;
+  var collator = new Intl.Collator(['ru', 'en'], { sensitivity: 'base', numeric: true });
+
+  function fmt(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP);
+  }
+  function plural(n, one, few, many) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;';
+    });
+  }
+  function norm(s) {
+    return s.toLowerCase().replace(/ё/g, 'е');
+  }
+
+  var EXT = {
+    extinct: { label: '†', title: 'Вымерший', rank: 3 },
+    possibly_extinct: { label: '†?', title: 'Возможно вымерший', rank: 1 },
+    extinct_in_wild: { label: '† в природе', title: 'Вымерший в природе', rank: 2 }
+  };
+  var SRC_BADGE = {
+    ebird: { label: 'eBird', cls: '', title: 'Название взято из eBird, в списке IOC отсутствует' },
+    wikidata: { label: 'WD', cls: '', title: 'Название взято из Wikidata, в списке IOC отсутствует' },
+    manual: { label: 'ручн.', cls: ' manual', title: 'Название добавлено вручную' }
+  };
+
+  function prepare(list) {
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      r._h = norm([r.sci, r.en, r.ru, r.family, r.family_en, r.order]
+        .filter(function (x) { return x; }).join('\n'));
+      r._x = r.extinct ? EXT[r.extinct] : null;
+    }
+  }
+
+  function renderSummary() {
+    var total = data.length, src = { ioc: 0, ebird: 0, wikidata: 0, manual: 0 }, withRu = 0, ext = 0;
+    for (var i = 0; i < total; i++) {
+      var r = data[i];
+      if (r.ru) { withRu++; if (r.ru_source && src.hasOwnProperty(r.ru_source)) src[r.ru_source]++; }
+      if (r.extinct) ext++;
+    }
+    el.summary.innerHTML =
+      '<b>' + fmt(total) + '</b> ' + plural(total, 'вид', 'вида', 'видов') +
+      ' · русское название есть у <b>' + fmt(withRu) + '</b>' +
+      ' (IOC ' + fmt(src.ioc) + ', eBird ' + fmt(src.ebird) + ', Wikidata ' + fmt(src.wikidata) +
+      ', вручную ' + fmt(src.manual) + ')' +
+      ' · без названия <b>' + fmt(total - withRu) + '</b>' +
+      ' · вымерших <b>' + fmt(ext) + '</b>';
+  }
+
+  function cmpStr(a, b) {
+    // nulls always last regardless of direction
+    if (!a && !b) return 0;
+    if (!a) return 2;
+    if (!b) return -2;
+    return collator.compare(a, b);
+  }
+  function sorter(key, dir) {
+    return function (a, b) {
+      var c;
+      switch (key) {
+        case 'seq': c = (a.seq - b.seq) * dir; break;
+        case 'sci': case 'en': case 'ru':
+          c = cmpStr(a[key], b[key]); if (Math.abs(c) !== 2) c *= dir; break;
+        case 'family':
+          c = cmpStr(a.family, b.family); if (Math.abs(c) !== 2) c *= dir; break;
+        case 'status':
+          c = ((a._x ? a._x.rank : 0) - (b._x ? b._x.rank : 0)) * dir;
+          if (!c) { c = cmpStr(a.iucn, b.iucn); if (Math.abs(c) !== 2) c *= dir; }
+          break;
+      }
+      return c || (a.seq - b.seq);
+    };
+  }
+
+  function rowHtml(r) {
+    var h = '<tr' + (r.ru ? '' : ' class="missing"') + '>';
+    h += '<td class="c-seq">' + (r.seq != null ? r.seq : '') + '</td>';
+
+    var sci = esc(r.sci || '');
+    if (r.id) {
+      sci = '<a href="https://avibase.bsc-eoc.org/species.jsp?avibaseid=' + encodeURIComponent(r.id) +
+        '" target="_blank" rel="noopener">' + sci + '</a>';
+    }
+    h += '<td><span class="sci">' + sci + '</span>' +
+      (r.authority ? '<span class="small">' + esc(r.authority) + '</span>' : '') + '</td>';
+
+    h += '<td>' + esc(r.en || '') + '</td>';
+
+    if (r.ru) {
+      var b = r.ru_source && SRC_BADGE[r.ru_source];
+      h += '<td>' + esc(r.ru) +
+        (b ? '<sup class="badge' + b.cls + '" title="' + b.title + '">' + b.label + '</sup>' : '') + '</td>';
+    } else {
+      h += '<td><span class="muted">нет названия</span></td>';
+    }
+
+    h += '<td>' + esc(r.family || '') +
+      (r.family_en ? '<span class="small">' + esc(r.family_en) + '</span>' : '') + '</td>';
+
+    h += '<td class="c-status">' +
+      (r._x ? '<span class="ext" title="' + r._x.title + '">' + r._x.label + '</span>' : '') +
+      (r.iucn ? '<span class="iucn" title="Категория МСОП (IUCN)">' + esc(r.iucn) + '</span>' : '') +
+      '</td>';
+    return h + '</tr>';
+  }
+
+  function renderMore() {
+    var end = Math.min(shown + PAGE, matched.length);
+    var parts = [];
+    for (var i = shown; i < end; i++) parts.push(rowHtml(matched[i]));
+    el.tbody.insertAdjacentHTML('beforeend', parts.join(''));
+    shown = end;
+    var left = matched.length - shown;
+    el.more.hidden = left <= 0;
+    if (left > 0) {
+      el.moreBtn.textContent = 'Показать ещё ' + fmt(Math.min(PAGE, left));
+      el.moreInfo.textContent = 'показано ' + fmt(shown) + ' из ' + fmt(matched.length);
+    }
+  }
+
+  function apply() {
+    var terms = norm(el.q.value.trim()).split(/\s+/).filter(Boolean);
+    var onlyExt = el.fExtinct.checked, onlyProb = el.fProblem.checked;
+    var out = [];
+    for (var i = 0; i < data.length; i++) {
+      var r = data[i];
+      if (onlyExt && !r.extinct) continue;
+      if (onlyProb && r.ru_status === 'ok') continue;
+      var ok = true;
+      for (var t = 0; t < terms.length; t++) {
+        if (r._h.indexOf(terms[t]) === -1) { ok = false; break; }
+      }
+      if (ok) out.push(r);
+    }
+    out.sort(sorter(sortKey, sortDir));
+    matched = out;
+    shown = 0;
+    el.tbody.textContent = '';
+    el.count.textContent = 'Найдено: ' + fmt(matched.length);
+    if (!matched.length) {
+      el.tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Ничего не найдено</td></tr>';
+      el.more.hidden = true;
+    } else {
+      renderMore();
+    }
+  }
+
+  var timer = null;
+  el.q.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(apply, 150);
+  });
+  el.fExtinct.addEventListener('change', apply);
+  el.fProblem.addEventListener('change', apply);
+  el.moreBtn.addEventListener('click', renderMore);
+  el.ths.forEach(function (th) {
+    th.querySelector('button').addEventListener('click', function () {
+      var key = th.getAttribute('data-key');
+      if (key === sortKey) sortDir = -sortDir; else { sortKey = key; sortDir = 1; }
+      el.ths.forEach(function (o) { o.removeAttribute('aria-sort'); });
+      th.setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending');
+      apply();
+    });
+  });
+
+  function fail(err) {
+    var isFile = location.protocol === 'file:';
+    el.status.className = 'status-msg error';
+    el.status.setAttribute('role', 'alert');
+    el.status.innerHTML =
+      '<strong>Не удалось загрузить данные.</strong><br>' +
+      (isFile
+        ? 'Страница открыта как локальный файл, и браузер не позволяет загрузить <code>data/species.json</code>. ' +
+          'Запустите локальный сервер в папке <code>docs/</code>, например <code>python3 -m http.server</code>, и откройте <code>http://localhost:8000/</code>.'
+        : 'Попробуйте обновить страницу.') +
+      '<br><span class="muted">' + esc(err && err.message ? err.message : String(err)) + '</span>';
+  }
+
+  fetch('data/species.json')
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' при загрузке data/species.json');
+      return res.json();
+    })
+    .then(function (json) {
+      if (!Array.isArray(json)) throw new Error('Неверный формат данных: ожидался массив');
+      data = json;
+      data.sort(function (a, b) { return a.seq - b.seq; });
+      prepare(data);
+      renderSummary();
+      el.status.hidden = true;
+      el.wrap.hidden = false;
+      [el.q, el.fExtinct, el.fProblem].forEach(function (x) { x.disabled = false; });
+      apply();
+    })
+    .catch(fail);
+})();
+</script>
 </body>
 </html>
