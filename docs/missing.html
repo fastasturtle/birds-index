@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Виды без русского названия</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Виды птиц мира, для которых нет русского названия, и названия, взятые из запасных источников.">
+<link rel="stylesheet" href="style.css">
+<style>
+  thead .th { display: block; padding: 8px 10px; }
+  .back { display: inline-block; margin-bottom: 8px; font-size: 0.92rem; }
+  .lead { margin: 8px 0 0; max-width: 60em; }
+  .tabs { gap: 6px; }
+  .tab {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text);
+    font: inherit; font-size: 0.92rem; cursor: pointer; white-space: nowrap;
+  }
+  .tab[aria-selected="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); font-weight: 600; }
+  .tab .n { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+  .panel-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin: 14px 0 0; }
+  .panel-head p { margin: 0; color: var(--muted); }
+  .dl {
+    display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text);
+    font: inherit; font-size: 0.9rem; cursor: pointer;
+  }
+  .dl:hover { border-color: var(--muted); }
+  .lbl-short { display: none; }
+  .t-missing .c-sci { width: 52%; }
+  .t-missing .c-en { width: 48%; }
+  @media (max-width: 640px) {
+    .tabs { flex-wrap: nowrap; overflow-x: auto; width: 100%; }
+    .tab, .dl { min-height: 44px; }
+    .tab { padding: 0 12px; }
+    .lbl-short { display: inline; }
+    .t-missing tr.sp { grid-template-areas: "sci st" "en en"; }
+    .t-missing tr.sp .c-sci { font-size: 1rem; align-self: center; }
+    .panel-head .dl { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="back" href="index.html">← Указатель всех видов</a>
+    <h1>Виды без русского названия</h1>
+    <p class="lead">Виды, для которых ни в IOC 15.2, ни в eBird, ни в Wikidata нет русского названия. Предложения принимаются через <code>data/overrides.csv</code> или <a href="https://github.com/fastasturtle/birds-index/issues" target="_blank" rel="noopener">issues</a>.</p>
+    <p class="summary" id="summary" aria-live="polite"></p>
+  </header>
+
+  <div class="controls tabs" id="controls" role="tablist" aria-label="Списки">
+    <button type="button" class="tab" role="tab" id="tab-missing" aria-controls="panel-missing" aria-selected="true">Без названия <span class="n" id="n-missing"></span></button>
+    <button type="button" class="tab" role="tab" id="tab-fallback" aria-controls="panel-fallback" aria-selected="false" tabindex="-1"><span class="lbl-long">Названия из запасных источников</span><span class="lbl-short">Запасные</span> <span class="n" id="n-fallback"></span></button>
+  </div>
+
+  <main>
+    <div id="status" class="status-msg" role="status">Загрузка данных…</div>
+
+    <section id="panel-missing" role="tabpanel" aria-labelledby="tab-missing" hidden>
+      <div class="panel-head">
+        <p id="info-missing"></p>
+        <button type="button" class="dl" data-list="missing">Скачать CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table class="t-missing">
+          <caption class="visually-hidden">Виды без русского названия, в систематическом порядке</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="c-sci"><span class="th">Латинское название</span></th>
+              <th scope="col" class="c-en"><span class="th">English</span></th>
+              <th scope="col" class="c-st"><span class="th">Статус</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-missing"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="panel-fallback" role="tabpanel" aria-labelledby="tab-fallback" hidden>
+      <div class="panel-head">
+        <p id="info-fallback"></p>
+        <button type="button" class="dl" data-list="fallback">Скачать CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table class="t-fallback">
+          <caption class="visually-hidden">Русские названия из запасных источников, в систематическом порядке</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="c-sci"><span class="th">Латинское название</span></th>
+              <th scope="col" class="c-ru"><span class="th">Русский</span></th>
+              <th scope="col" class="c-en"><span class="th">English</span></th>
+              <th scope="col" class="c-st"><span class="th">Статус</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-fallback"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <h2>Источники данных</h2>
+    <ul>
+      <li>Таксономия и английские названия: <a href="https://www.avilist.org" target="_blank" rel="noopener">AviList</a> v2025b — CC BY 4.0</li>
+      <li>Русские названия: <a href="https://worldbirdnames.org" target="_blank" rel="noopener">IOC World Bird List</a> v15.2; дополнительно eBird/Clements 2025 и <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a></li>
+    </ul>
+    <p><a href="index.html">Указатель всех видов</a> · <a href="https://github.com/fastasturtle/birds-index" target="_blank" rel="noopener">github.com/fastasturtle/birds-index</a></p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var NNBSP = ' ';
+  var lists = { missing: [], fallback: [] };
+  var taxa = { orders: Object.create(null), families: Object.create(null) };
+  var totals = { o: Object.create(null), f: Object.create(null) };
+
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP); }
+  function plural(n, one, few, many) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  function vidov(n) { return fmt(n) + ' ' + plural(n, 'вид', 'вида', 'видов'); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;';
+    });
+  }
+
+  var EXT = {
+    extinct: { html: '†', title: 'Вымерший' },
+    possibly_extinct: { html: '†?', title: 'Возможно вымерший' },
+    extinct_in_wild: { html: '† <small>в природе</small>', title: 'Вымерший в природе' }
+  };
+  var SRC_BADGE = {
+    ebird: { label: 'eBird', cls: '', title: 'Русское название взято из eBird/Clements: в списке IOC его нет' },
+    wikidata: { label: 'WD', cls: '', title: 'Русское название взято из Wikidata: в списке IOC его нет' },
+    manual: { label: 'ручн.', cls: ' manual', title: 'Русское название добавлено вручную' }
+  };
+  var IUCN = {
+    LC: 'наименьшие опасения', NT: 'близкий к уязвимому положению', VU: 'уязвимый', EN: 'вымирающий',
+    CR: 'в критическом состоянии', EW: 'исчезнувший в природе', EX: 'исчезнувший',
+    DD: 'недостаточно данных', NE: 'не оценивался'
+  };
+
+  function countLabel(n, total) { return n === total ? vidov(total) : fmt(n) + ' из ' + fmt(total); }
+  function groupHtml(g, cols) {
+    var sep = ' <span class="g-sep" aria-hidden="true">·</span> ';
+    if (g.t === 'o') {
+      var o = taxa.orders[g.sci];
+      return '<tr class="grp grp-o"><th colspan="' + cols + '" scope="colgroup">' +
+        '<span class="o-lat" lang="la">' + esc(g.sci) + '</span>' +
+        (o && o.ru ? sep + '<span class="g-ru">' + esc(o.ru) + '</span>' : '') +
+        sep + '<span class="g-n">' + countLabel(g.n, totals.o[g.sci]) + '</span></th></tr>';
+    }
+    var f = taxa.families[g.sci];
+    var en = (f && f.en) || g.en;
+    return '<tr class="grp grp-f"><th colspan="' + cols + '" scope="colgroup">' +
+      '<span class="f-lat" lang="la">' + esc(g.sci) + '</span>' +
+      (f && f.ru ? sep + '<span class="g-ru">' + esc(f.ru) + '</span>' : '') +
+      (en ? sep + '<span lang="en">' + esc(en) + '</span>' : '') +
+      sep + '<span class="g-n">' + countLabel(g.n, totals.f[g.key]) + '</span></th></tr>';
+  }
+
+  function rowHtml(r, withRu) {
+    var x = r.extinct ? EXT[r.extinct] : null;
+    var mark = x ? '<abbr class="ext" title="' + x.title + '">' + x.html + '</abbr>' : '';
+    var a = r.auth != null ? r.auth : r.authority;
+    var h = '<tr class="sp"' + (r.id ? ' id="' + esc(r.id) + '"' : '') + '>';
+    h += '<td class="c-sci">' + (mark ? '<span class="d-only">' + mark + '</span>' : '') +
+      '<span class="sci" lang="la">' + esc(r.sci || '') + '</span>' +
+      (a ? ' <span class="auth">' + esc(a) + '</span>' : '') + '</td>';
+    if (withRu) {
+      var b = r.ru_source && SRC_BADGE[r.ru_source];
+      h += '<td class="c-ru">' + esc(r.ru || '') +
+        (b ? '<details class="src' + b.cls + '"><summary title="' + b.title + '">' + b.label +
+          '</summary><span class="pop" role="note">' + b.title + '</span></details>' : '') + '</td>';
+    }
+    h += '<td class="c-en" lang="en">' + esc(r.en || '') + '</td>';
+    var iu = r.iucn ? String(r.iucn) : '', cat = iu.slice(0, 2);
+    h += '<td class="c-st">' + (mark ? '<span class="m-only">' + mark + '</span>' : '') +
+      (iu ? '<abbr class="iucn ' + esc(cat) + '" title="МСОП: ' + esc(iu) + (IUCN[cat] ? ' — ' + IUCN[cat] : '') +
+        '">' + esc(iu) + '</abbr>' : '') +
+      (r.id ? '<a class="plink" href="index.html#' + encodeURIComponent(r.id) + '" aria-label="Открыть ' +
+        esc(r.sci || 'вид') + ' в указателе" title="Открыть в указателе"><i aria-hidden="true"></i></a>' : '') +
+      '</td>';
+    return h + '</tr>';
+  }
+
+  function render(list, tbody, withRu) {
+    var cols = withRu ? 4 : 3;
+    var oc = Object.create(null), fc = Object.create(null);
+    list.forEach(function (r) { oc[r.order] = (oc[r.order] || 0) + 1; fc[r._fk] = (fc[r._fk] || 0) + 1; });
+    var parts = [], lastO = null, lastF = null;
+    list.forEach(function (r) {
+      if (r.order !== lastO) { parts.push(groupHtml({ t: 'o', sci: r.order, n: oc[r.order] }, cols)); lastO = r.order; lastF = null; }
+      if (r._fk !== lastF) { parts.push(groupHtml({ t: 'f', sci: r.family, key: r._fk, en: r.family_en, n: fc[r._fk] }, cols)); lastF = r._fk; }
+      parts.push(rowHtml(r, withRu));
+    });
+    tbody.innerHTML = parts.length ? parts.join('')
+      : '<tr class="empty"><td colspan="' + cols + '" class="muted" style="text-align:center;padding:24px">Список пуст</td></tr>';
+  }
+
+  /* ---------- CSV ---------- */
+  var CSV_COLS = {
+    missing: ['sci', 'en', 'family', 'order', 'iucn'],
+    fallback: ['sci', 'en', 'family', 'order', 'iucn', 'ru', 'ru_source']
+  };
+  function csvCell(v) {
+    v = v == null ? '' : String(v);
+    return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  function csv(name) {
+    var cols = CSV_COLS[name];
+    var lines = [cols.join(',')];
+    lists[name].forEach(function (r) { lines.push(cols.map(function (c) { return csvCell(r[c]); }).join(',')); });
+    return '﻿' + lines.join('\r\n') + '\r\n';
+  }
+  function download(name) {
+    var blob = new Blob([csv(name)], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name === 'missing' ? 'birds-missing-ru.csv' : 'birds-fallback-ru.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  /* ---------- tabs ---------- */
+  var tabs = ['missing', 'fallback'];
+  function select(name, focus) {
+    tabs.forEach(function (t) {
+      var on = t === name;
+      var tab = document.getElementById('tab-' + t);
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      tab.tabIndex = on ? 0 : -1;
+      document.getElementById('panel-' + t).hidden = !on;
+      if (on && focus) tab.focus();
+    });
+    try { history.replaceState(null, '', location.pathname + location.search + (name === 'fallback' ? '#fallback' : '')); } catch (e) { /* ignore */ }
+    measure();
+  }
+  tabs.forEach(function (t, i) {
+    var tab = document.getElementById('tab-' + t);
+    tab.addEventListener('click', function () { select(t); });
+    tab.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        select(tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length], true);
+      }
+    });
+  });
+  document.querySelectorAll('.dl').forEach(function (b) {
+    b.addEventListener('click', function () { download(b.getAttribute('data-list')); });
+  });
+  document.addEventListener('click', function (e) {
+    var keep = e.target.closest && e.target.closest('details');
+    document.querySelectorAll('details.src[open]').forEach(function (d) { if (d !== keep) d.open = false; });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') document.querySelectorAll('details.src[open]').forEach(function (d) { d.open = false; });
+  });
+
+  function measure() {
+    var root = document.documentElement.style;
+    root.setProperty('--ctl-h', document.getElementById('controls').offsetHeight + 'px');
+    var th = document.querySelector('section:not([hidden]) thead');
+    root.setProperty('--thead-h', (th ? th.offsetHeight : 0) + 'px');
+    var oh = document.querySelector('section:not([hidden]) tr.grp-o');
+    if (oh && oh.offsetHeight) root.setProperty('--oh-h', oh.offsetHeight + 'px');
+  }
+  window.addEventListener('resize', measure);
+
+  function fail(err) {
+    var st = document.getElementById('status');
+    st.className = 'status-msg error';
+    st.setAttribute('role', 'alert');
+    st.innerHTML = '<strong>Не удалось загрузить данные.</strong><br>' +
+      (location.protocol === 'file:'
+        ? 'Страница открыта как локальный файл. Запустите локальный сервер в папке <code>docs/</code>, например <code>python3 -m http.server</code>.'
+        : 'Попробуйте обновить страницу.') +
+      '<br><span class="muted">' + esc(err && err.message ? err.message : String(err)) + '</span>';
+  }
+
+  var taxaReq = fetch('data/taxa.json')
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .catch(function () { return null; });
+
+  fetch('data/species.json')
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' при загрузке data/species.json');
+      return res.json();
+    })
+    .then(function (json) {
+      if (!Array.isArray(json)) throw new Error('Неверный формат данных: ожидался массив');
+      return taxaReq.then(function (t) { return [json, t]; });
+    })
+    .then(function (res) {
+      var data = res[0], t = res[1];
+      if (t && typeof t === 'object') {
+        (t.orders || []).forEach(function (o) { if (o && o.sci) taxa.orders[o.sci] = o; });
+        (t.families || []).forEach(function (f) { if (f && f.sci) taxa.families[f.sci] = f; });
+      }
+      data.sort(function (a, b) { return a.seq - b.seq; });
+      data.forEach(function (r) {
+        r._fk = r.order + '|' + r.family;
+        totals.o[r.order] = (totals.o[r.order] || 0) + 1;
+        totals.f[r._fk] = (totals.f[r._fk] || 0) + 1;
+        if (r.ru_status === 'missing') lists.missing.push(r);
+        else if (r.ru_status === 'ok_fallback') lists.fallback.push(r);
+      });
+      var nm = lists.missing.length, nf = lists.fallback.length;
+      document.getElementById('summary').innerHTML =
+        'Без русского названия <b>' + fmt(nm) + '</b> из ' + fmt(data.length) + ' · из запасных источников <b>' + fmt(nf) + '</b>';
+      document.getElementById('n-missing').textContent = fmt(nm);
+      document.getElementById('n-fallback').textContent = fmt(nf);
+      document.getElementById('info-missing').textContent =
+        vidov(nm) + ' без русского названия. Ссылка справа открывает вид в общем указателе.';
+      document.getElementById('info-fallback').textContent =
+        vidov(nf) + ': русского названия нет в IOC, оно взято из eBird/Clements, Wikidata или добавлено вручную.';
+      render(lists.missing, document.getElementById('tbody-missing'), false);
+      render(lists.fallback, document.getElementById('tbody-fallback'), true);
+      document.getElementById('status').hidden = true;
+      select(location.hash === '#fallback' ? 'fallback' : 'missing');
+      window.__firstPaint = performance.now();
+    })
+    .catch(fail);
+})();
+</script>
+</body>
+</html>
