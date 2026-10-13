@@ -57,7 +57,37 @@ overrides (`data/overrides.csv`). The build script is `scripts/build.py`.
 - **Used for:** `ru` with `ru_source = "wikidata"`. If Wikidata is unreachable
   the build still succeeds and `data/report.md` says it was skipped.
 
-## 5. Manual overrides
+## 5. ZMMU passerine list — Russian family names (committed)
+
+- **Name:** Волков С.В., Коблик Е.А. «Птицы мира: рекомендуемые русские
+  названия видов», spreadsheet for Passeriformes
+- **File:** `data/raw/Birds_rus_names_passerine.xlsx` (downloaded 2026-10-13)
+- **URL:** https://zmmu.msu.ru/files/publications/Birds_rus_names_passerine.xlsx
+- **Used for:** Russian family names in `data/taxa.json` (`ru_source = "zmmu"`),
+  from family header rows such as `Pittidae - Питтовые` (alternative names in
+  parentheses and stress marks dropped). Each header is checked against the
+  AviList families of the species listed under it; misspelt headers are
+  mapped to the AviList family of their species, and headers for families
+  AviList does not recognise are ignored (listed in `data/report.md`).
+- **Not used:** the companion non-passerine file
+  (https://zmmu.msu.ru/files/publications/Birds_rus_names.xlsx) has family
+  header rows with Latin names only, no Russian, so it is not downloaded.
+  Neither file has order names.
+
+## 6. Wikidata — Russian order and family names (not redistributed as a file)
+
+- One SPARQL query with a VALUES list of all AviList order and family names:
+  items with P225 = name and P105 = Q36602 (order) or Q35409 (family); items
+  placed under Aves (Q5113) win over homonyms. Russian P1843 is preferred,
+  else the Russian label if it is Cyrillic. Cached in
+  `data/cache/wikidata-taxa-ru.json` (gitignored); re-queried only with
+  `--fetch` or when the cache lacks a current name.
+- **Licence:** CC0 1.0
+- **Used for:** `ru_source = "wikidata"` in `data/taxa.json` when ZMMU has no name.
+
+## 7. Manual overrides
 
 - **File:** `data/overrides.csv` (`sci,field,value,note`), applied last.
   An override of `ru` sets `ru_source = "manual"`.
+  `sci` may also be an order or family name (only `field = ru`), which sets
+  the name in `data/taxa.json` with `ru_source = "manual"`.

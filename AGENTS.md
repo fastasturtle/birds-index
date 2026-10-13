@@ -7,8 +7,9 @@ The main agent never does concrete work itself. It acts as **orchestrator**, **r
 - Trilingual (Russian / English / Latin) index of all world bird species, including recently extinct ones (post-1500).
 - Taxonomic backbone: AviList (currently v2025b). Species only, no subspecies.
 - Russian names cascade: IOC World Bird List 15.2 multilingual (names originate from Волков & Коблик, ZMMU) → eBird → Wikidata → `data/overrides.csv` (manual layer, applied last; never edit generated data by hand, put fixes in overrides).
-- Pipeline: `uv run scripts/build.py` regenerates `data/species.json`, `data/report.md` and `docs/data/species.json` from scratch. Raw AviList/IOC files live in `data/raw/`; eBird/Wikidata are cached in `data/cache/` (gitignored).
-- Site: static `docs/index.html` + `docs/data/species.json`, deployed to GitHub Pages from `docs/` on push to main. No build step, no framework.
+- Pipeline: `uv run scripts/build.py` regenerates `data/species.json`, `data/taxa.json` (orders and families with Russian names: ZMMU passerine family headers → Wikidata → overrides), `data/report.md` and their copies `docs/data/species.json`, `docs/data/taxa.json` from scratch. Raw AviList/IOC/ZMMU files live in `data/raw/`; eBird/Wikidata are cached in `data/cache/` (gitignored).
+- Site: static `docs/index.html` (the index), `docs/missing.html` (species without a Russian name or with a fallback name, CSV download), shared `docs/style.css`, data in `docs/data/species.json` + `docs/data/taxa.json` (optional for the pages), deployed to GitHub Pages from `docs/` on push to main. No build step, no framework.
+- Decisions and their rationale are logged in `DECISIONS.md`; append an entry whenever a decision is made or changed, and update README/AGENTS.md when the pipeline, schema or layout changes.
 
 ## Roles
 
@@ -29,4 +30,5 @@ The main agent never does concrete work itself. It acts as **orchestrator**, **r
 - One subagent, one task. Don't mix "explore" and "implement" in one brief.
 - Subagents don't commit, push or take irreversible actions unless the brief says so.
 - Answer the user in the language they used.
+- Keep docs in sync: a change to the data schema, pipeline flags, or site structure updates README.md and AGENTS.md in the same PR.
 - Follow-up work and deferred decisions go into GitHub issues in this repository, not into chat or TODO comments.

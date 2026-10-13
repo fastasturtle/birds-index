@@ -9,6 +9,11 @@ of sources, matched by exact (normalised) scientific name:
     3. Wikidata P1843 (taxon common name, ru)   -> ru_source "wikidata"
     4. data/overrides.csv (applied last)        -> ru_source "manual"
 
+It also writes data/taxa.json: orders and families (in systematic order) with
+Russian names from the ZMMU passerine spreadsheet (family header rows) ->
+"zmmu", Wikidata (P1843 / ru label of the order or family item) -> "wikidata",
+and data/overrides.csv (sci = order or family name, field = ru) -> "manual".
+
 Usage:
     uv run scripts/build.py            # download whatever is missing, then build
     uv run scripts/build.py --offline  # use only files already on disk
@@ -39,15 +44,20 @@ AVILIST_PATH = RAW / "AviList-v2025b-extended.xlsx"
 IOC_PATH = RAW / "IOC-Multiling-15.2.xlsx"
 EBIRD_PATH = CACHE / "ebird-taxonomy-ru.json"
 WIKIDATA_PATH = CACHE / "wikidata-ru-p1843.json"
+WIKIDATA_TAXA_PATH = CACHE / "wikidata-taxa-ru.json"
+ZMMU_PASSERINE_PATH = RAW / "Birds_rus_names_passerine.xlsx"
 OVERRIDES_PATH = DATA / "overrides.csv"
 OUT_JSON = DATA / "species.json"
 OUT_DOCS_JSON = ROOT / "docs" / "data" / "species.json"
+OUT_TAXA_JSON = DATA / "taxa.json"
+OUT_DOCS_TAXA_JSON = ROOT / "docs" / "data" / "taxa.json"
 OUT_REPORT = DATA / "report.md"
 
 AVILIST_URL = "https://www.avilist.org/wp-content/uploads/2026/06/AviList-v2025b-10Jun2026-extended.xlsx"
 IOC_URL = "https://worldbirdnames.org/Multiling%20IOC%2015.2.xlsx"
 EBIRD_URL = "https://api.ebird.org/v2/ref/taxonomy/ebird?fmt=json&locale=ru&cat=species"
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
+ZMMU_PASSERINE_URL = "https://zmmu.msu.ru/files/publications/Birds_rus_names_passerine.xlsx"
 
 USER_AGENT = "birds-index-build/0.1 (https://github.com/fastasturtle/birds-index)"
 CYRILLIC = re.compile(r"[Ѐ-ӿ]")
@@ -63,7 +73,7 @@ EXTINCT_MAP = {
 }
 
 FIELDS = [
-    "id", "seq", "order", "family", "family_en", "sci", "authority", "en",
+    "id", "seq", "order", "family", "family_en", "sci", "authority", "auth", "en",
     "ru", "ru_source", "ru_status", "ioc_sci", "extinct", "iucn",
 ]
 
@@ -85,6 +95,72 @@ def clean(value) -> str | None:
 
 def log(msg: str) -> None:
     print(msg, file=sys.stderr)
+
+
+AUTH_YEAR = re.compile(r"(.*?),\s*(\d{4}[a-z]?)")
+AUTH_SUFFIX = re.compile(r"\b(Jr|Sr)\.?$")
+AUTH_TRAILING_INITIALS = re.compile(r"\s+[A-Z]{1,3}$")
+
+
+def normalise_authority(raw: str | None) -> str | None:
+    """AviList authority -> conventional zoological form without initials.
+
+    "Linnaeus, C, 1758" -> "Linnaeus, 1758"; "(Latham, J, 1790)" -> "(Latham, 1790)";
+    two authors "A & B, year"; three or more "A, B & C, year". Authors are
+    separated by ";" and written "Surname, Initials" (Jr/Sr kept as a suffix);
+    an author without a comma is kept, minus trailing initials ("Zhao C" ->
+    "Zhao"), so full names such as "Liu Yang" or "Suparno" survive. Strings
+    that do not end in a year are returned unchanged.
+    """
+    if raw is None:
+        return None
+    text = raw.strip()
+    paren = text.startswith("(") and text.endswith(")")
+    if paren:
+        text = text[1:-1].strip()
+    m = AUTH_YEAR.fullmatch(text)
+    if not m:
+        return raw
+    names = []
+    for part in m.group(1).split(";"):
+        part = part.strip()
+        if "," in part:
+            surname, initials = (x.strip() for x in part.rsplit(",", 1))
+            suffix = AUTH_SUFFIX.search(initials)
+            if suffix:
+                surname = f"{surname} {suffix.group(1)}"
+        else:
+            surname = AUTH_TRAILING_INITIALS.sub("", part)
+        names.append(surname)
+    if len(names) == 1:
+        authors = names[0]
+    else:
+        authors = ", ".join(names[:-1]) + " & " + names[-1]
+    out = f"{authors}, {m.group(2)}"
+    return f"({out})" if paren else out
+
+
+def _test_normalise_authority() -> None:
+    cases = {
+        "Linnaeus, C, 1758": "Linnaeus, 1758",
+        "(Latham, J, 1790)": "(Latham, 1790)",
+        "Sclater, PL; von Hochstetter, F, 1861": "Sclater & von Hochstetter, 1861",
+        "Tennyson, AJD; Palma, RL; Robertson, HA; Worthy, TH; Gill, BJ, 2003":
+            "Tennyson, Palma, Robertson, Worthy & Gill, 2003",
+        "(d'Orbigny, ACVMD; de Lafresnaye, NFAA, 1837)": "(d'Orbigny & de Lafresnaye, 1837)",
+        "Phelps, WH Sr; Phelps, WH Jr, 1946": "Phelps Sr & Phelps Jr, 1946",
+        "Zhou F; Jiang A, 2008": "Zhou & Jiang, 2008",
+        "Indrawan, M; Rasmussen, PC; Sunarto, 2008": "Indrawan, Rasmussen & Sunarto, 2008",
+        "(Oustalet, J-FÉ, 1880)": "(Oustalet, 1880)",
+        "Mahood, SP; Hong Chamnan; Poole, CM, 2013": "Mahood, Hong Chamnan & Poole, 2013",
+    }
+    for raw, want in cases.items():
+        got = normalise_authority(raw)
+        assert got == want, f"normalise_authority({raw!r}) = {got!r}, want {want!r}"
+    assert normalise_authority(None) is None
+
+
+LEFTOVER_INITIALS = re.compile(r", [A-Z]{1,3}[,;)]|, [A-Z]{1,3}$")
 
 
 def download(url: str, dest: Path, timeout: int = 300) -> None:
@@ -149,6 +225,7 @@ def load_avilist(path: Path) -> list[dict]:
             "family_en": clean(row.get("Family_English_name")),
             "sci": clean(row.get("Scientific_name")),
             "authority": clean(row.get("Authority")),
+            "auth": normalise_authority(clean(row.get("Authority"))),
             "en": clean(row.get("English_name_AviList")),
             "ru": None,
             "ru_source": None,
@@ -296,6 +373,180 @@ def load_wikidata(path: Path) -> dict[str, str]:
     return out
 
 
+# ---- order / family names
+
+ZMMU_HEADER = re.compile(r"([A-Z][a-z]+idae)\b\s*[-–—]?\s*(.*)")
+# Stressed vowels in the ZMMU file are Latin look-alikes: "Стрелкú" (ú = и́),
+# "Яхý" (ý = у́).
+STRESS_MARKS = str.maketrans({"á": "а", "é": "е", "ó": "о", "ú": "и", "ý": "у", "í": "и",
+                              "\u0301": None})
+
+
+def normalise_taxon_ru(name: str | None) -> str | None:
+    """Strip whitespace, drop stress marks, capitalise the first letter."""
+    name = clean((name or "").translate(STRESS_MARKS))
+    if not name:
+        return None
+    return name[0].upper() + name[1:]
+
+
+def load_zmmu_families(path: Path, species_family: dict[str, str],
+                       families: set[str]) -> tuple[dict[str, str], list[str]]:
+    """Return ({family_key: Russian name}, warnings) from the ZMMU passerine list.
+
+    Family header rows look like "Pittidae - Питтовые" (alternative names in
+    parentheses are dropped). Each header is checked against the AviList
+    families of the species listed under it: if the header's Latin name is not
+    an AviList family, or none of those species belongs to it (slips such as
+    a misspelt or wrongly repeated header), the name is given to the majority
+    family of those species instead, but only if that family has no header of
+    its own.
+    """
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb.worksheets[0]
+    blocks: list[list] = []  # [latin, russian, Counter of AviList families]
+    for row in ws.iter_rows(values_only=True):
+        a = clean(row[0]) if row else None
+        rest = [clean(v) for v in row[1:4]] if row else []
+        if not a:
+            continue
+        m = ZMMU_HEADER.fullmatch(a)
+        if m and not any(rest):
+            ru = re.sub(r"\([^)]*\)", "", m.group(2))
+            blocks.append([m.group(1), normalise_taxon_ru(ru), Counter()])
+        elif blocks and sci_key(a) in species_family:
+            blocks[-1][2][species_family[sci_key(a)]] += 1
+    wb.close()
+
+    out: dict[str, str] = {}
+    warnings: list[str] = []
+    deferred = []
+    for latin, ru, fams in blocks:
+        if not ru:
+            continue
+        majority = fams.most_common(1)[0][0] if fams else None
+        if latin in families and (not fams or fams[latin] > 0):
+            out.setdefault(latin.lower(), ru)
+        else:
+            deferred.append((latin, ru, majority))
+    for latin, ru, majority in deferred:
+        if majority and majority.lower() not in out:
+            out[majority.lower()] = ru
+            warnings.append(f"ZMMU header {latin!r} ({ru}) lists {majority} species; "
+                            f"used for {majority}")
+        else:
+            warnings.append(f"ZMMU header {latin!r} ({ru}) not used "
+                            f"(majority AviList family of its species: {majority or 'none'})")
+    return out, warnings
+
+
+WIKIDATA_TAXA_QUERY = """
+SELECT ?item ?sci ?rank ?ru ?label ?aves WHERE {{
+  VALUES ?sci {{ {names} }}
+  VALUES ?rank {{ wd:Q36602 wd:Q35409 }}
+  ?item wdt:P225 ?sci ;
+        wdt:P105 ?rank .
+  OPTIONAL {{ ?item wdt:P1843 ?ru . FILTER(LANG(?ru) = "ru") }}
+  OPTIONAL {{ ?item rdfs:label ?label . FILTER(LANG(?label) = "ru") }}
+  BIND(EXISTS {{ ?item wdt:P171+ wd:Q5113 }} AS ?aves)
+}}
+"""
+
+
+def fetch_wikidata_taxa(dest: Path, names: list[str]) -> None:
+    """One SPARQL query (VALUES list) for the order/family items; cache raw rows."""
+    log(f"  querying Wikidata SPARQL for {len(names)} order/family names")
+    values = " ".join(json.dumps(n) for n in names)
+    bindings = sparql_retry(WIKIDATA_TAXA_QUERY.format(names=values), attempts=2)
+    rows = [{
+        "item": b["item"]["value"].rsplit("/", 1)[-1],
+        "sci": b["sci"]["value"],
+        "rank": "order" if b["rank"]["value"].endswith("/Q36602") else "family",
+        "ru": b.get("ru", {}).get("value"),
+        "label": b.get("label", {}).get("value"),
+        "aves": b.get("aves", {}).get("value") == "true",
+    } for b in bindings]
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps({"queried": sorted(names), "rows": rows},
+                               ensure_ascii=False, indent=1), encoding="utf-8")
+    log(f"  cached {len(rows)} Wikidata order/family rows")
+
+
+def load_wikidata_taxa(path: Path) -> dict[tuple[str, str], str]:
+    """Return {(rank, sci_key): Russian name}.
+
+    Items placed under Aves win over homonyms elsewhere. P1843 (ru) is
+    preferred, choosing the value equal to the ru label if there are several
+    (else the first sorted); otherwise the ru label if it contains Cyrillic.
+    """
+    rows = json.loads(path.read_text(encoding="utf-8"))["rows"]
+    items: dict[tuple[str, str], dict[str, dict]] = {}
+    for r in rows:
+        it = items.setdefault((r["rank"], sci_key(r["sci"])), {}).setdefault(
+            r["item"], {"ru": set(), "label": None, "aves": False})
+        if r.get("ru"):
+            it["ru"].add(normalise_taxon_ru(r["ru"]))
+        if r.get("label"):
+            it["label"] = normalise_taxon_ru(r["label"])
+        it["aves"] = it["aves"] or bool(r.get("aves"))
+    out = {}
+    for key, cands in items.items():
+        pool = [c for c in cands.values() if c["aves"]] or list(cands.values())
+        for c in sorted(pool, key=lambda c: (not c["ru"], not c["label"])):
+            names = sorted(c["ru"])
+            if names:
+                out[key] = c["label"] if c["label"] in names else names[0]
+                break
+            if c["label"] and CYRILLIC.search(c["label"]):
+                out[key] = c["label"]
+                break
+    return out
+
+
+def build_taxa(records) -> dict[str, list[dict]]:
+    """Orders and families with species counts and first sequence number."""
+    orders: dict[str, dict] = {}
+    families: dict[str, dict] = {}
+    for r in records:
+        o = orders.setdefault(r["order"], {"sci": r["order"], "ru": None, "ru_source": None,
+                                           "seq": r["seq"], "count": 0})
+        o["seq"] = min(o["seq"], r["seq"])
+        o["count"] += 1
+        f = families.setdefault(r["family"], {"sci": r["family"], "en": r["family_en"],
+                                              "ru": None, "ru_source": None,
+                                              "order": r["order"], "seq": r["seq"],
+                                              "count": 0})
+        f["seq"] = min(f["seq"], r["seq"])
+        f["count"] += 1
+    return {"orders": sorted(orders.values(), key=lambda t: t["seq"]),
+            "families": sorted(families.values(), key=lambda t: t["seq"])}
+
+
+def apply_taxa_names(taxa, zmmu: dict[str, str], wikidata_taxa: dict) -> None:
+    for rank, items in (("order", taxa["orders"]), ("family", taxa["families"])):
+        for t in items:
+            key = sci_key(t["sci"])
+            for source, name in (("zmmu", zmmu.get(key) if rank == "family" else None),
+                                 ("wikidata", wikidata_taxa.get((rank, key)))):
+                if name:
+                    t["ru"], t["ru_source"] = name, source
+                    break
+
+
+def apply_taxa_overrides(taxa, overrides) -> list[str]:
+    by_key = {sci_key(t["sci"]): t for t in taxa["orders"] + taxa["families"]}
+    warnings = []
+    for ov in overrides:
+        t = by_key[sci_key(ov["sci"])]
+        field = (ov.get("field") or "").strip()
+        if field != "ru":
+            warnings.append(f"override with unsupported field {field!r} for taxon {ov['sci']!r}")
+            continue
+        t["ru"] = normalise_taxon_ru(ov.get("value"))
+        t["ru_source"] = "manual" if t["ru"] else None
+    return warnings
+
+
 def load_overrides(path: Path) -> list[dict]:
     if not path.exists():
         return []
@@ -318,11 +569,17 @@ def apply_cascade(records, ioc, ebird, wikidata):
                 break
 
 
-def apply_overrides(records, overrides) -> list[str]:
-    """Apply manual overrides in file order; return a list of warnings."""
+def apply_overrides(records, overrides, taxon_keys=frozenset()) -> list[str]:
+    """Apply manual species overrides in file order; return a list of warnings.
+
+    Rows whose `sci` is an order or family name (taxon_keys) are skipped here;
+    apply_taxa_overrides handles them.
+    """
     by_key = {sci_key(r["sci"]): r for r in records}
     warnings = []
     for ov in overrides:
+        if sci_key(ov["sci"]) in taxon_keys and sci_key(ov["sci"]) not in by_key:
+            continue
         rec = by_key.get(sci_key(ov["sci"]))
         field = (ov.get("field") or "").strip()
         value = clean(ov.get("value"))
@@ -350,12 +607,15 @@ def finalise(records):
             rec["ru_status"] = "ok_fallback"
 
 
-def write_json(records):
+def write_json(records, taxa):
     payload = json.dumps([{k: r[k] for k in FIELDS} for r in records],
                          ensure_ascii=False, separators=(",", ":"))
     OUT_JSON.write_text(payload, encoding="utf-8")
+    OUT_TAXA_JSON.write_text(json.dumps(taxa, ensure_ascii=False, separators=(",", ":")),
+                             encoding="utf-8")
     OUT_DOCS_JSON.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(OUT_JSON, OUT_DOCS_JSON)
+    shutil.copyfile(OUT_TAXA_JSON, OUT_DOCS_TAXA_JSON)
 
 
 def md_table(rows, headers) -> list[str]:
@@ -366,7 +626,7 @@ def md_table(rows, headers) -> list[str]:
     return out
 
 
-def write_report(records, ioc, ebird, wikidata, status, warnings) -> dict:
+def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings) -> dict:
     avi_keys = {sci_key(r["sci"]) for r in records}
     total = len(records)
     by_source = Counter(r["ru_source"] for r in records)
@@ -395,7 +655,15 @@ def write_report(records, ioc, ebird, wikidata, status, warnings) -> dict:
         "not_in_ioc": len(not_in_ioc),
         "ioc_not_in_avilist": len(ioc_only),
         "ioc_ebird_diff": len(diffs),
+        "auth_leftover_initials": sum(1 for r in records
+                                      if r["auth"] and LEFTOVER_INITIALS.search(r["auth"])),
     }
+    for rank in ("orders", "families"):
+        src = Counter(t["ru_source"] for t in taxa[rank])
+        counts[f"{rank}"] = len(taxa[rank])
+        for s in ("zmmu", "wikidata", "manual"):
+            counts[f"{rank}_ru_{s}"] = src.get(s, 0)
+        counts[f"{rank}_ru_missing"] = src.get(None, 0)
 
     L = ["# Build report", ""]
     L += ["## Sources", ""]
@@ -418,7 +686,23 @@ def write_report(records, ioc, ebird, wikidata, status, warnings) -> dict:
         ("AviList species not in IOC (exact name)", counts["not_in_ioc"]),
         ("IOC species not in AviList (exact name)", counts["ioc_not_in_avilist"]),
         ("IOC vs eBird Russian name differs", counts["ioc_ebird_diff"]),
+        ("`auth` with leftover initials", counts["auth_leftover_initials"]),
     ], ["Metric", "Count"])
+
+    L += ["", "## Orders and families: Russian names", "",
+          "Sources: ZMMU passerine list family headers (`zmmu`), Wikidata (`wikidata`), "
+          "`data/overrides.csv` (`manual`). Written to `data/taxa.json`.", ""]
+    L += md_table([(rank, counts[rank], counts[f"{rank}_ru_zmmu"], counts[f"{rank}_ru_wikidata"],
+                    counts[f"{rank}_ru_manual"], counts[f"{rank}_ru_missing"])
+                   for rank in ("orders", "families")],
+                  ["Rank", "Total", "zmmu", "wikidata", "manual", "missing"])
+    if taxa_warnings:
+        L += ["", "### Taxon name warnings", ""] + [f"- {w}" for w in taxa_warnings]
+    missing_taxa = [("order", t["sci"], "", t["count"]) for t in taxa["orders"] if not t["ru"]]
+    missing_taxa += [("family", t["sci"], t["en"], t["count"]) for t in taxa["families"]
+                     if not t["ru"]]
+    L += ["", f"### Orders and families without a Russian name ({len(missing_taxa)})", ""]
+    L += md_table(missing_taxa, ["Rank", "Scientific name", "English", "Species"])
 
     L += ["", f"## AviList species not found in IOC ({len(not_in_ioc)})", ""]
     L += md_table([(r["sci"], r["en"], r["ru_source"] or "—") for r in not_in_ioc],
@@ -429,8 +713,8 @@ def write_report(records, ioc, ebird, wikidata, status, warnings) -> dict:
     L += md_table([(v["sci"], v["en"], v["ru"]) for v in ioc_only],
                   ["IOC scientific name", "English (IOC)", "Russian (IOC)"])
     L += ["", f"## IOC and eBird Russian names differ ({len(diffs)})", "",
-          "Report only; the JSON always prefers IOC. First 50 examples:", ""]
-    L += md_table(diffs[:50], ["Scientific name", "IOC", "eBird"])
+          "Report only; the JSON always prefers IOC.", ""]
+    L += md_table(diffs, ["Scientific name", "IOC", "eBird"])
     OUT_REPORT.write_text("\n".join(L) + "\n", encoding="utf-8")
     return counts
 
@@ -445,6 +729,7 @@ def main() -> None:
     args = ap.parse_args()
     mode = "offline" if args.offline else "fetch" if args.fetch else "default"
     log(f"mode: {mode}")
+    _test_normalise_authority()
 
     status = {}
     ensure_file(AVILIST_PATH, AVILIST_URL, mode, required=True)
@@ -476,17 +761,64 @@ def main() -> None:
     ioc = load_ioc(IOC_PATH)
 
     apply_cascade(records, ioc, ebird, wikidata)
-    warnings = apply_overrides(records, load_overrides(OVERRIDES_PATH))
+    overrides = load_overrides(OVERRIDES_PATH)
+    taxa = build_taxa(records)
+    taxon_keys = {sci_key(t["sci"]) for t in taxa["orders"] + taxa["families"]}
+    species_keys = {sci_key(r["sci"]) for r in records}
+    warnings = apply_overrides(records, overrides, taxon_keys)
     finalise(records)
 
-    write_json(records)
-    counts = write_report(records, ioc, ebird, wikidata, status, warnings)
+    # order / family Russian names
+    taxa_warnings: list[str] = []
+    zmmu = {}
+    if ensure_file(ZMMU_PASSERINE_PATH, ZMMU_PASSERINE_URL, mode, required=False):
+        zmmu, taxa_warnings = load_zmmu_families(
+            ZMMU_PASSERINE_PATH, {sci_key(r["sci"]): r["family"] for r in records},
+            {t["sci"] for t in taxa["families"]})
+        status["ZMMU passerine list (family names)"] = (
+            f"`{ZMMU_PASSERINE_PATH.relative_to(ROOT)}`, {len(zmmu)} families")
+    else:
+        status["ZMMU passerine list (family names)"] = "SKIPPED (not available)"
+    taxon_names = sorted(t["sci"] for t in taxa["orders"] + taxa["families"])
+    cached_names = None
+    if WIKIDATA_TAXA_PATH.exists():
+        try:
+            cached_names = json.loads(WIKIDATA_TAXA_PATH.read_text(encoding="utf-8"))["queried"]
+        except Exception:  # noqa: BLE001 - corrupt cache: refetch
+            cached_names = None
+    if mode == "fetch" or (mode == "default" and (
+            cached_names is None or not set(taxon_names) <= set(cached_names))):
+        try:
+            fetch_wikidata_taxa(WIKIDATA_TAXA_PATH, taxon_names)
+        except Exception as exc:  # noqa: BLE001
+            log(f"  WARNING: Wikidata order/family query failed: {exc}")
+    wikidata_taxa = {}
+    if WIKIDATA_TAXA_PATH.exists():
+        wikidata_taxa = load_wikidata_taxa(WIKIDATA_TAXA_PATH)
+        status["Wikidata orders/families (ru)"] = (
+            f"`{WIKIDATA_TAXA_PATH.relative_to(ROOT)}`, {len(wikidata_taxa)} taxa")
+    else:
+        status["Wikidata orders/families (ru)"] = "SKIPPED (unreachable or no cache)"
+    apply_taxa_names(taxa, zmmu, wikidata_taxa)
+    taxa_warnings += apply_taxa_overrides(
+        taxa, [ov for ov in overrides
+               if sci_key(ov["sci"]) in taxon_keys and sci_key(ov["sci"]) not in species_keys])
 
-    print(f"Wrote {OUT_JSON.relative_to(ROOT)}, {OUT_DOCS_JSON.relative_to(ROOT)}, {OUT_REPORT.relative_to(ROOT)}")
+    write_json(records, taxa)
+    counts = write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings)
+
+    print(f"Wrote {OUT_JSON.relative_to(ROOT)}, {OUT_TAXA_JSON.relative_to(ROOT)}, "
+          f"{OUT_DOCS_JSON.relative_to(ROOT)}, {OUT_DOCS_TAXA_JSON.relative_to(ROOT)}, "
+          f"{OUT_REPORT.relative_to(ROOT)}")
     for name, state in status.items():
         print(f"  {name}: {state}")
     for k, v in counts.items():
         print(f"  {k}: {v}")
+    for w in taxa_warnings:
+        print(f"  taxon warning: {w}")
+    for rank in ("orders", "families"):
+        missing = [t["sci"] for t in taxa[rank] if not t["ru"]]
+        print(f"  {rank} without Russian name ({len(missing)}): {', '.join(missing) or '-'}")
 
 
 if __name__ == "__main__":

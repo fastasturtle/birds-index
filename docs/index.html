@@ -5,191 +5,52 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Птицы мира</title>
 <link rel="icon" href="data:,">
-<meta name="description" content="Указатель всех видов птиц мира, включая недавно вымершие: латинские, английские и русские названия.">
-<style>
-  :root {
-    color-scheme: light dark;
-    --bg: #fbfbf9;
-    --surface: #ffffff;
-    --text: #1d1f21;
-    --muted: #6b7075;
-    --border: #e3e3df;
-    --head-bg: #f3f3ef;
-    --row-hover: #f5f6f2;
-    --missing-bg: #fff6e0;
-    --missing-hover: #fdeec8;
-    --accent: #2f6f4f;
-    --badge-bg: #e6eef9;
-    --badge-text: #2c4f80;
-    --badge-manual-bg: #efe7f6;
-    --badge-manual-text: #5b3a7a;
-    --extinct: #8a2b2b;
-    --focus: #3b82f6;
-    --error-bg: #fdecec;
-    --error-text: #8a1f1f;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #141516;
-      --surface: #1b1c1e;
-      --text: #e6e6e3;
-      --muted: #9a9fa4;
-      --border: #303236;
-      --head-bg: #222326;
-      --row-hover: #232528;
-      --missing-bg: #2e2714;
-      --missing-hover: #3a311a;
-      --accent: #7cc59d;
-      --badge-bg: #22324a;
-      --badge-text: #a9c5ee;
-      --badge-manual-bg: #34263f;
-      --badge-manual-text: #d4b8ec;
-      --extinct: #e39a9a;
-      --focus: #7aa7ff;
-      --error-bg: #3a1c1c;
-      --error-text: #f2b8b8;
-    }
-  }
-  * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  }
-  a { color: var(--accent); }
-  a:focus-visible, button:focus-visible, input:focus-visible, th button:focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: 2px;
-    border-radius: 3px;
-  }
-  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
-  header { padding: 28px 0 12px; }
-  h1 { margin: 0; font-size: 1.9rem; font-weight: 650; letter-spacing: -0.01em; }
-  .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 1.02rem; }
-  .summary { margin: 10px 0 0; font-size: 0.92rem; color: var(--muted); }
-  .summary b { color: var(--text); font-weight: 600; }
-
-  .controls {
-    position: sticky; top: 0; z-index: 2;
-    background: var(--bg);
-    padding: 12px 0;
-    display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
-    border-bottom: 1px solid var(--border);
-  }
-  .search { flex: 1 1 320px; min-width: 0; }
-  .search input {
-    width: 100%;
-    font: inherit;
-    padding: 9px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    color: var(--text);
-  }
-  .search input:focus-visible { outline-offset: 0; border-color: var(--focus); }
-  .visually-hidden {
-    position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
-    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-  }
-  .toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; white-space: nowrap; }
-  .toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
-  .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-  .status-msg { padding: 40px 0; text-align: center; color: var(--muted); }
-  .status-msg.error {
-    color: var(--error-text); background: var(--error-bg);
-    border-radius: 8px; padding: 18px 20px; margin: 20px 0; text-align: left;
-  }
-  .status-msg.error code { font-size: 0.9em; }
-
-  .table-wrap {
-    margin-top: 12px;
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-  }
-  table { width: 100%; border-collapse: collapse; min-width: 860px; }
-  th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--border); }
-  thead th {
-    background: var(--head-bg);
-    font-weight: 600; font-size: 0.86rem;
-    padding: 0;
-    white-space: nowrap;
-  }
-  thead th button {
-    all: unset;
-    display: block; width: 100%;
-    padding: 8px 10px;
-    cursor: pointer;
-    box-sizing: border-box;
-  }
-  thead th button::after { content: ""; display: inline-block; width: 1em; margin-left: 4px; color: var(--muted); }
-  thead th[aria-sort="ascending"] button::after { content: "▲"; font-size: 0.7em; }
-  thead th[aria-sort="descending"] button::after { content: "▼"; font-size: 0.7em; }
-  tbody tr:hover { background: var(--row-hover); }
-  tbody tr.missing { background: var(--missing-bg); }
-  tbody tr.missing:hover { background: var(--missing-hover); }
-  tbody tr:last-child td { border-bottom: 0; }
-  .c-seq { width: 4.5em; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
-  .sci { font-style: italic; }
-  .sci a { color: inherit; text-decoration-color: var(--border); text-underline-offset: 2px; }
-  .sci a:hover { color: var(--accent); text-decoration-color: currentColor; }
-  .small { display: block; font-size: 0.8rem; color: var(--muted); font-style: normal; }
-  .muted { color: var(--muted); }
-  .badge {
-    display: inline-block;
-    font-size: 0.68rem; line-height: 1;
-    padding: 2px 4px; margin-left: 4px;
-    border-radius: 4px;
-    vertical-align: super;
-    background: var(--badge-bg); color: var(--badge-text);
-    cursor: help;
-  }
-  .badge.manual { background: var(--badge-manual-bg); color: var(--badge-manual-text); }
-  .c-status { white-space: nowrap; }
-  .ext { color: var(--extinct); font-weight: 600; cursor: help; }
-  .iucn { margin-left: 6px; font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-
-  .more { text-align: center; padding: 14px 0 4px; }
-  .more button {
-    font: inherit; padding: 8px 18px;
-    border: 1px solid var(--border); border-radius: 8px;
-    background: var(--surface); color: var(--text); cursor: pointer;
-  }
-  .more button:hover { border-color: var(--muted); }
-  .more .muted { display: block; font-size: 0.85rem; margin-top: 6px; }
-
-  footer { margin: 28px 0 40px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.88rem; }
-  footer h2 { font-size: 0.95rem; margin: 0 0 6px; color: var(--text); font-weight: 600; }
-  footer ul { margin: 0 0 10px; padding-left: 1.2em; }
-  footer li { margin: 2px 0; }
-
-  @media (max-width: 640px) {
-    h1 { font-size: 1.55rem; }
-    .count { margin-left: 0; width: 100%; }
-    th, td { padding: 6px 8px; }
-  }
-</style>
+<meta name="description" content="Систематический список всех видов птиц мира, включая недавно вымершие: латинские, русские и английские названия.">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>Птицы мира</h1>
-    <p class="subtitle">Указатель видов: латынь · English · русский</p>
+    <p class="subtitle">Систематический список видов: латынь · русский · English</p>
     <p class="summary" id="summary" aria-live="polite"></p>
   </header>
 
-  <div class="controls" role="search">
+  <div class="controls" id="controls" role="search">
     <div class="search">
-      <label for="q" class="visually-hidden">Поиск по латинскому, английскому или русскому названию</label>
+      <label for="q" class="visually-hidden">Поиск по латинскому, русскому или английскому названию</label>
       <input id="q" type="search" autocomplete="off" spellcheck="false"
-             placeholder="Поиск по латинскому, английскому или русскому названию" disabled>
+             placeholder="Поиск: латынь, русское или английское название" disabled>
     </div>
-    <label class="toggle"><input type="checkbox" id="f-extinct" disabled> только вымершие</label>
-    <label class="toggle"><input type="checkbox" id="f-problem" disabled> только проблемные</label>
+    <div class="chips">
+      <label class="chip"><input type="checkbox" id="f-extinct" disabled> <span class="lbl-long">только </span>вымершие</label>
+      <label class="chip"><input type="checkbox" id="f-problem" disabled> <span class="lbl-long">только </span>проблемные</label>
+      <label class="sort"><span class="visually-hidden">Порядок</span>
+        <select id="sort" disabled>
+          <option value="seq">Систематика</option>
+          <option value="sci">Латынь А–Я</option>
+          <option value="ru">Русский А–Я</option>
+          <option value="en">English A–Z</option>
+          <option value="status">По статусу</option>
+        </select>
+      </label>
+      <details class="legend" id="legend">
+        <summary aria-label="Обозначения"><span class="lbl">Обозначения</span></summary>
+        <div class="legend-panel">
+          <dl>
+            <dt><span class="ext">†</span></dt><dd>вымерший вид</dd>
+            <dt><span class="ext">†?</span></dt><dd>возможно вымерший</dd>
+            <dt><span class="ext">† <small>в природе</small></span></dt><dd>вымерший в природе (сохранился в неволе)</dd>
+            <dt><span class="badge-demo">eBird</span> <span class="badge-demo">WD</span> <span class="badge-demo manual">ручн.</span></dt>
+            <dd>источник русского названия, если его нет в списке IOC: eBird/Clements, Wikidata, вручную. Нажмите на бейдж для пояснения</dd>
+            <dt><span class="swatch"></span></dt><dd>строка без русского названия</dd>
+            <dt><span class="iucn CR">CR</span> <span class="iucn LC">LC</span></dt>
+            <dd>категория МСОП (IUCN): LC — наименьшие опасения, NT — близкий к уязвимому, VU — уязвимый, EN — вымирающий, CR — в критическом состоянии, EW — исчезнувший в природе, EX — исчезнувший, DD — недостаточно данных, NE — не оценивался; (PE) — возможно исчезнувший</dd>
+            <dt><span class="ico-link" aria-hidden="true"></span></dt><dd>скопировать постоянную ссылку на вид</dd>
+          </dl>
+        </div>
+      </details>
+    </div>
     <span class="count" id="count" aria-live="polite"></span>
   </div>
 
@@ -197,24 +58,19 @@
     <div id="status" class="status-msg" role="status">Загрузка данных…</div>
     <div class="table-wrap" id="table-wrap" hidden>
       <table>
-        <caption class="visually-hidden">Виды птиц мира</caption>
-        <thead>
+        <caption class="visually-hidden">Виды птиц мира в систематическом порядке</caption>
+        <thead id="thead">
           <tr>
-            <th scope="col" data-key="seq" aria-sort="ascending"><button type="button">№</button></th>
-            <th scope="col" data-key="sci"><button type="button">Латинское название</button></th>
-            <th scope="col" data-key="en"><button type="button">English</button></th>
-            <th scope="col" data-key="ru"><button type="button">Русский</button></th>
-            <th scope="col" data-key="family"><button type="button">Семейство</button></th>
-            <th scope="col" data-key="status"><button type="button">Статус</button></th>
+            <th scope="col" class="c-sci" data-key="sci"><button type="button">Латинское название</button></th>
+            <th scope="col" class="c-ru" data-key="ru"><button type="button">Русский</button></th>
+            <th scope="col" class="c-en" data-key="en"><button type="button">English</button></th>
+            <th scope="col" class="c-st" data-key="status"><button type="button">Статус</button></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
-    <div class="more" id="more" hidden>
-      <button type="button" id="more-btn">Показать ещё</button>
-      <span class="muted" id="more-info"></span>
-    </div>
+    <div class="sentinel" id="sentinel" hidden></div>
   </main>
 
   <footer>
@@ -223,76 +79,122 @@
       <li>Таксономия и английские названия: <a href="https://www.avilist.org" target="_blank" rel="noopener">AviList</a> v2025b — CC BY 4.0</li>
       <li>Русские названия: <a href="https://worldbirdnames.org" target="_blank" rel="noopener">IOC World Bird List</a> v15.2, многоязычный список — CC BY 3.0; в его основе — Волков С.В., Коблик Е.А. «Птицы мира: рекомендуемые русские названия видов» (Зоологический музей МГУ)</li>
       <li>Дополнительные русские названия: eBird/Clements 2025; <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> — CC0</li>
+      <li><a href="missing.html">Виды без русского названия и названия из запасных источников</a> — списки для проверки, с выгрузкой в CSV</li>
       <li>Ссылки на виды ведут в <a href="https://avibase.bsc-eoc.org" target="_blank" rel="noopener">Avibase</a></li>
     </ul>
+    <div class="cite">
+      <h2>Как цитировать</h2>
+      <p id="version">Данные: AviList v2025b, IOC 15.2; сборка от 13.10.2026</p>
+      <p class="ref">Волков С. В., Коблик Е. А. Птицы мира: рекомендуемые русские названия видов. Зоологический музей МГУ.</p>
+      <p class="ref">AviList Core Team. AviList: The Global Avian Checklist, v2025b. <a href="https://doi.org/10.2173/avilist.v2025b" target="_blank" rel="noopener">doi:10.2173/avilist.v2025b</a></p>
+      <p class="ref">Gill F., Donsker D., Rasmussen P. (eds). IOC World Bird List (v15.2). <a href="https://doi.org/10.14344/IOC.ML.15.2" target="_blank" rel="noopener">doi:10.14344/IOC.ML.15.2</a></p>
+    </div>
     <p>Исходный код и данные: <a href="https://github.com/fastasturtle/birds-index" target="_blank" rel="noopener">github.com/fastasturtle/birds-index</a></p>
   </footer>
 </div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
 (function () {
   'use strict';
 
-  var PAGE = 500;
+  var CHUNK = 300;
   var NNBSP = ' '; // narrow no-break space
+  var COLS = 4;
 
   var el = {
     summary: document.getElementById('summary'),
+    controls: document.getElementById('controls'),
     q: document.getElementById('q'),
     fExtinct: document.getElementById('f-extinct'),
     fProblem: document.getElementById('f-problem'),
+    sort: document.getElementById('sort'),
+    legend: document.getElementById('legend'),
     count: document.getElementById('count'),
     status: document.getElementById('status'),
     wrap: document.getElementById('table-wrap'),
+    thead: document.getElementById('thead'),
     tbody: document.getElementById('tbody'),
-    more: document.getElementById('more'),
-    moreBtn: document.getElementById('more-btn'),
-    moreInfo: document.getElementById('more-info'),
+    sentinel: document.getElementById('sentinel'),
+    version: document.getElementById('version'),
+    toast: document.getElementById('toast'),
     ths: Array.prototype.slice.call(document.querySelectorAll('thead th[data-key]'))
   };
 
   var data = [];
-  var matched = [];
-  var shown = 0;
+  var byId = Object.create(null);
+  var taxa = { orders: Object.create(null), families: Object.create(null) };
+  var totals = { o: Object.create(null), f: Object.create(null) };
+  var groupSeq = { o: Object.create(null), f: Object.create(null) };
+  var items = [];      // records and group-header objects, in display order
+  var rendered = 0;
+  var terms = [];
+  var filtered = false;
   var sortKey = 'seq';
   var sortDir = 1;
+  var hitRow = null;
   var collator = new Intl.Collator(['ru', 'en'], { sensitivity: 'base', numeric: true });
 
-  function fmt(n) {
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP);
-  }
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP); }
   function plural(n, one, few, many) {
     var m10 = n % 10, m100 = n % 100;
     if (m10 === 1 && m100 !== 11) return one;
     if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
     return many;
   }
+  function vidov(n) { return fmt(n) + ' ' + plural(n, 'вид', 'вида', 'видов'); }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;';
     });
   }
-  function norm(s) {
-    return s.toLowerCase().replace(/ё/g, 'е');
-  }
+  function norm(s) { return String(s).toLowerCase().replace(/ё/g, 'е'); }
 
   var EXT = {
-    extinct: { label: '†', title: 'Вымерший', rank: 3 },
-    possibly_extinct: { label: '†?', title: 'Возможно вымерший', rank: 1 },
-    extinct_in_wild: { label: '† в природе', title: 'Вымерший в природе', rank: 2 }
+    extinct: { html: '†', title: 'Вымерший', rank: 3 },
+    possibly_extinct: { html: '†?', title: 'Возможно вымерший', rank: 1 },
+    extinct_in_wild: { html: '† <small>в природе</small>', title: 'Вымерший в природе', rank: 2 }
   };
   var SRC_BADGE = {
-    ebird: { label: 'eBird', cls: '', title: 'Название взято из eBird, в списке IOC отсутствует' },
-    wikidata: { label: 'WD', cls: '', title: 'Название взято из Wikidata, в списке IOC отсутствует' },
-    manual: { label: 'ручн.', cls: ' manual', title: 'Название добавлено вручную' }
+    ebird: { label: 'eBird', cls: '', title: 'Русское название взято из eBird/Clements: в списке IOC его нет' },
+    wikidata: { label: 'WD', cls: '', title: 'Русское название взято из Wikidata: в списке IOC его нет' },
+    manual: { label: 'ручн.', cls: ' manual', title: 'Русское название добавлено вручную' }
+  };
+  var IUCN = {
+    LC: 'наименьшие опасения', NT: 'близкий к уязвимому положению', VU: 'уязвимый', EN: 'вымирающий',
+    CR: 'в критическом состоянии', EW: 'исчезнувший в природе', EX: 'исчезнувший',
+    DD: 'недостаточно данных', NE: 'не оценивался'
   };
 
+  /* ---------- preparation ---------- */
   function prepare(list) {
     for (var i = 0; i < list.length; i++) {
       var r = list[i];
-      r._h = norm([r.sci, r.en, r.ru, r.family, r.family_en, r.order]
-        .filter(function (x) { return x; }).join('\n'));
-      r._x = r.extinct ? EXT[r.extinct] : null;
+      var fk = r.order + '|' + r.family;
+      r._fk = fk;
+      r._n = [r.sci ? norm(r.sci) : '', r.ru ? norm(r.ru) : '', r.en ? norm(r.en) : ''];
+      r._w = ' ' + r._n.join(' ').replace(/[-‐–—()]/g, ' ');
+      r._h = r._n.join('\n') + '\n' + norm([r.family, r.family_en, r.order].filter(Boolean).join('\n'));
+      r._x = r.extinct ? EXT[r.extinct] || null : null;
+      r._a = r.auth != null ? r.auth : r.authority;
+      if (r.id) byId[r.id] = r;
+      totals.o[r.order] = (totals.o[r.order] || 0) + 1;
+      totals.f[fk] = (totals.f[fk] || 0) + 1;
+      if (!(r.order in groupSeq.o)) groupSeq.o[r.order] = r.seq;
+      if (!(fk in groupSeq.f)) groupSeq.f[fk] = r.seq;
+    }
+  }
+
+  function loadTaxa(json) {
+    if (!json || typeof json !== 'object') return;
+    (json.orders || []).forEach(function (o) { if (o && o.sci) taxa.orders[o.sci] = o; });
+    (json.families || []).forEach(function (f) { if (f && f.sci) taxa.families[f.sci] = f; });
+    var gen = json.generated || (json.meta && json.meta.generated);
+    if (gen) {
+      var d = new Date(gen);
+      var s = isNaN(d) ? String(gen)
+        : ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear();
+      el.version.textContent = 'Данные: AviList v2025b, IOC 15.2; сборка от ' + s;
     }
   }
 
@@ -303,31 +205,33 @@
       if (r.ru) { withRu++; if (r.ru_source && src.hasOwnProperty(r.ru_source)) src[r.ru_source]++; }
       if (r.extinct) ext++;
     }
+    var nO = Object.keys(totals.o).length, nF = Object.keys(totals.f).length;
     el.summary.innerHTML =
-      '<b>' + fmt(total) + '</b> ' + plural(total, 'вид', 'вида', 'видов') +
+      '<span class="sum-full"><b>' + fmt(total) + '</b> ' + plural(total, 'вид', 'вида', 'видов') +
+      ' в ' + fmt(nF) + ' ' + plural(nF, 'семействе', 'семействах', 'семействах') +
+      ' и ' + fmt(nO) + ' ' + plural(nO, 'отряде', 'отрядах', 'отрядах') +
       ' · русское название есть у <b>' + fmt(withRu) + '</b>' +
       ' (IOC ' + fmt(src.ioc) + ', eBird ' + fmt(src.ebird) + ', Wikidata ' + fmt(src.wikidata) +
       ', вручную ' + fmt(src.manual) + ')' +
-      ' · без названия <b>' + fmt(total - withRu) + '</b>' +
-      ' · вымерших <b>' + fmt(ext) + '</b>';
+      ' · <a href="missing.html">без названия <b>' + fmt(total - withRu) + '</b></a>' +
+      ' · вымерших <b>' + fmt(ext) + '</b></span>' +
+      '<span class="sum-short"><b>' + fmt(total) + '</b> ' + plural(total, 'вид', 'вида', 'видов') +
+      ' · <a href="missing.html">без рус. назв. <b>' + fmt(total - withRu) + '</b></a> · вымерших <b>' + fmt(ext) + '</b></span>';
   }
 
+  /* ---------- sorting & ranking ---------- */
   function cmpStr(a, b) {
-    // nulls always last regardless of direction
-    if (!a && !b) return 0;
+    if (!a && !b) return 0;   // nulls always last regardless of direction
     if (!a) return 2;
     if (!b) return -2;
     return collator.compare(a, b);
   }
   function sorter(key, dir) {
     return function (a, b) {
-      var c;
+      var c = 0;
       switch (key) {
-        case 'seq': c = (a.seq - b.seq) * dir; break;
         case 'sci': case 'en': case 'ru':
           c = cmpStr(a[key], b[key]); if (Math.abs(c) !== 2) c *= dir; break;
-        case 'family':
-          c = cmpStr(a.family, b.family); if (Math.abs(c) !== 2) c *= dir; break;
         case 'status':
           c = ((a._x ? a._x.rank : 0) - (b._x ? b._x.rank : 0)) * dir;
           if (!c) { c = cmpStr(a.iucn, b.iucn); if (Math.abs(c) !== 2) c *= dir; }
@@ -336,56 +240,147 @@
       return c || (a.seq - b.seq);
     };
   }
+  // 0: a name starts with the whole query; 1: every term starts a word; 2: substring only
+  function rank(r, q) {
+    for (var i = 0; i < 3; i++) if (r._n[i] && r._n[i].lastIndexOf(q, 0) === 0) return 0;
+    for (var t = 0; t < terms.length; t++) if (r._w.indexOf(' ' + terms[t]) === -1) return 2;
+    return 1;
+  }
+
+  /* ---------- rendering ---------- */
+  function hl(s) {
+    if (!s) return '';
+    if (!terms.length) return esc(s);
+    var n = norm(s);
+    if (n.length !== s.length) return esc(s);
+    var iv = [];
+    terms.forEach(function (t) {
+      var p = n.indexOf(t);
+      while (p !== -1) { iv.push([p, p + t.length]); p = n.indexOf(t, p + t.length); }
+    });
+    if (!iv.length) return esc(s);
+    iv.sort(function (a, b) { return a[0] - b[0]; });
+    var out = '', pos = 0, cur = iv[0].slice();
+    for (var i = 1; i <= iv.length; i++) {
+      if (i < iv.length && iv[i][0] <= cur[1]) { cur[1] = Math.max(cur[1], iv[i][1]); continue; }
+      out += esc(s.slice(pos, cur[0])) + '<mark>' + esc(s.slice(cur[0], cur[1])) + '</mark>';
+      pos = cur[1];
+      if (i < iv.length) cur = iv[i].slice();
+    }
+    return out + esc(s.slice(pos));
+  }
+
+  function countLabel(n, total) {
+    if (!filtered || n === total) return vidov(total);
+    return fmt(n) + ' из ' + fmt(total);
+  }
+  function groupHtml(g) {
+    var h, sep = ' <span class="g-sep" aria-hidden="true">·</span> ';
+    if (g.t === 'o') {
+      var o = taxa.orders[g.sci];
+      h = '<tr class="grp grp-o"><th colspan="' + COLS + '" scope="colgroup">' +
+        '<span class="o-lat" lang="la">' + esc(g.sci) + '</span>' +
+        (o && o.ru ? sep + '<span class="g-ru">' + esc(o.ru) + '</span>' : '') +
+        sep + '<span class="g-n">' + countLabel(g.n, totals.o[g.sci]) + '</span></th></tr>';
+    } else {
+      var f = taxa.families[g.sci];
+      var en = (f && f.en) || g.en;
+      h = '<tr class="grp grp-f"><th colspan="' + COLS + '" scope="colgroup">' +
+        '<span class="f-lat" lang="la">' + esc(g.sci) + '</span>' +
+        (f && f.ru ? sep + '<span class="g-ru">' + esc(f.ru) + '</span>' : '') +
+        (en ? sep + '<span lang="en">' + esc(en) + '</span>' : '') +
+        sep + '<span class="g-n">' + countLabel(g.n, totals.f[g.key]) + '</span></th></tr>';
+    }
+    return h;
+  }
 
   function rowHtml(r) {
-    var h = '<tr' + (r.ru ? '' : ' class="missing"') + '>';
-    h += '<td class="c-seq">' + (r.seq != null ? r.seq : '') + '</td>';
+    var x = r._x;
+    var mark = x ? '<abbr class="ext" title="' + x.title + '">' + x.html + '</abbr>' : '';
+    var h = '<tr class="sp' + (r.ru ? '' : ' missing') + '"' + (r.id ? ' id="' + esc(r.id) + '"' : '') + '>';
 
-    var sci = esc(r.sci || '');
-    if (r.id) {
-      sci = '<a href="https://avibase.bsc-eoc.org/species.jsp?avibaseid=' + encodeURIComponent(r.id) +
-        '" target="_blank" rel="noopener">' + sci + '</a>';
-    }
-    h += '<td><span class="sci">' + sci + '</span>' +
-      (r.authority ? '<span class="small">' + esc(r.authority) + '</span>' : '') + '</td>';
-
-    h += '<td>' + esc(r.en || '') + '</td>';
+    var sci = hl(r.sci || '');
+    sci = r.id
+      ? '<a class="sci" lang="la" href="https://avibase.bsc-eoc.org/species.jsp?avibaseid=' +
+        encodeURIComponent(r.id.replace(/^avibase-/, '')) + '" target="_blank" rel="noopener">' + sci + '</a>'
+      : '<span class="sci" lang="la">' + sci + '</span>';
+    h += '<td class="c-sci">' + (mark ? '<span class="d-only">' + mark + '</span>' : '') + sci +
+      (r._a ? ' <span class="auth">' + esc(r._a) + '</span>' : '') + '</td>';
 
     if (r.ru) {
       var b = r.ru_source && SRC_BADGE[r.ru_source];
-      h += '<td>' + esc(r.ru) +
-        (b ? '<sup class="badge' + b.cls + '" title="' + b.title + '">' + b.label + '</sup>' : '') + '</td>';
+      h += '<td class="c-ru">' + hl(r.ru) +
+        (b ? '<details class="src' + b.cls + '"><summary title="' + b.title + '">' + b.label +
+          '</summary><span class="pop" role="note">' + b.title + '</span></details>' : '') + '</td>';
     } else {
-      h += '<td><span class="muted">нет названия</span></td>';
+      h += '<td class="c-ru"><span class="muted">нет русского названия</span></td>';
     }
 
-    h += '<td>' + esc(r.family || '') +
-      (r.family_en ? '<span class="small">' + esc(r.family_en) + '</span>' : '') + '</td>';
+    h += '<td class="c-en" lang="en">' + hl(r.en || '') + '</td>';
 
-    h += '<td class="c-status">' +
-      (r._x ? '<span class="ext" title="' + r._x.title + '">' + r._x.label + '</span>' : '') +
-      (r.iucn ? '<span class="iucn" title="Категория МСОП (IUCN)">' + esc(r.iucn) + '</span>' : '') +
+    var iu = r.iucn ? String(r.iucn) : '';
+    var cat = iu.slice(0, 2);
+    h += '<td class="c-st">' + (mark ? '<span class="m-only">' + mark + '</span>' : '') +
+      (iu ? '<abbr class="iucn ' + esc(cat) + '" title="МСОП: ' + esc(iu) + (IUCN[cat] ? ' — ' + IUCN[cat] : '') +
+        '">' + esc(iu) + '</abbr>' : '') +
+      (r.id ? '<button type="button" class="plink" data-id="' + esc(r.id) + '" aria-label="Скопировать ссылку на ' +
+        esc(r.sci || 'вид') + '" title="Скопировать ссылку"><i aria-hidden="true"></i></button>' : '') +
       '</td>';
     return h + '</tr>';
   }
 
-  function renderMore() {
-    var end = Math.min(shown + PAGE, matched.length);
+  function renderChunk(upto) {
+    var end = Math.min(Math.max(rendered + CHUNK, upto || 0), items.length);
+    if (end <= rendered) return;
     var parts = [];
-    for (var i = shown; i < end; i++) parts.push(rowHtml(matched[i]));
-    el.tbody.insertAdjacentHTML('beforeend', parts.join(''));
-    shown = end;
-    var left = matched.length - shown;
-    el.more.hidden = left <= 0;
-    if (left > 0) {
-      el.moreBtn.textContent = 'Показать ещё ' + fmt(Math.min(PAGE, left));
-      el.moreInfo.textContent = 'показано ' + fmt(shown) + ' из ' + fmt(matched.length);
+    for (var i = rendered; i < end; i++) {
+      var it = items[i];
+      parts.push(it.t ? groupHtml(it) : rowHtml(it));
     }
+    el.tbody.insertAdjacentHTML('beforeend', parts.join(''));
+    rendered = end;
+    if (rendered === CHUNK || rendered === end) measure();
+    var left = items.length - rendered;
+    el.sentinel.hidden = left <= 0;
+    if (left > 0) el.sentinel.textContent = 'Загрузка следующих строк…';
   }
+  function sentinelNear() {
+    return !el.sentinel.hidden && el.sentinel.getBoundingClientRect().top < window.innerHeight + 1500;
+  }
+  var filling = false;
+  function fill() {
+    if (filling) return;
+    filling = true;
+    var guard = 0;
+    while (rendered < items.length && sentinelNear() && guard++ < 10) renderChunk();
+    filling = false;
+    if (rendered < items.length && sentinelNear()) requestAnimationFrame(fill);
+  }
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (en) {
+      if (en.some(function (e) { return e.isIntersecting; })) fill();
+    }, { rootMargin: '0px 0px 1500px 0px' }).observe(el.sentinel);
+  }
+  window.addEventListener('scroll', function () { if (sentinelNear()) fill(); }, { passive: true });
 
-  function apply() {
-    var terms = norm(el.q.value.trim()).split(/\s+/).filter(Boolean);
+  // sticky offsets depend on the real heights of the controls, thead and order header
+  function measure() {
+    var root = document.documentElement.style;
+    root.setProperty('--ctl-h', el.controls.offsetHeight + 'px');
+    root.setProperty('--thead-h', el.thead.offsetHeight + 'px');
+    var oh = el.tbody.querySelector('tr.grp-o');
+    if (oh && oh.offsetHeight) root.setProperty('--oh-h', oh.offsetHeight + 'px');
+  }
+  if ('ResizeObserver' in window) new ResizeObserver(measure).observe(el.controls);
+  window.addEventListener('resize', measure);
+
+  /* ---------- filtering ---------- */
+  function apply(keepHash) {
+    var raw = el.q.value.trim();
+    var q = norm(raw).replace(/\s+/g, ' ');
+    terms = q.split(' ').filter(Boolean);
     var onlyExt = el.fExtinct.checked, onlyProb = el.fProblem.checked;
+    filtered = !!(terms.length || onlyExt || onlyProb);
     var out = [];
     for (var i = 0; i < data.length; i++) {
       var r = data[i];
@@ -397,35 +392,195 @@
       }
       if (ok) out.push(r);
     }
-    out.sort(sorter(sortKey, sortDir));
-    matched = out;
-    shown = 0;
-    el.tbody.textContent = '';
-    el.count.textContent = 'Найдено: ' + fmt(matched.length);
-    if (!matched.length) {
-      el.tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Ничего не найдено</td></tr>';
-      el.more.hidden = true;
+
+    var grouped = sortKey === 'seq';
+    if (!grouped) {
+      out.sort(sorter(sortKey, sortDir));
+      items = out;
     } else {
-      renderMore();
+      if (terms.length) {
+        // groups ordered by their best match, so prefix hits come first without breaking the hierarchy
+        var bo = Object.create(null), bf = Object.create(null);
+        out.forEach(function (r) {
+          var k = rank(r, q); r._r = k;
+          if (!(r.order in bo) || k < bo[r.order]) bo[r.order] = k;
+          if (!(r._fk in bf) || k < bf[r._fk]) bf[r._fk] = k;
+        });
+        out.sort(function (a, b) {
+          return (bo[a.order] - bo[b.order]) || (groupSeq.o[a.order] - groupSeq.o[b.order]) ||
+            (bf[a._fk] - bf[b._fk]) || (groupSeq.f[a._fk] - groupSeq.f[b._fk]) ||
+            (a._r - b._r) || (a.seq - b.seq);
+        });
+      }
+      items = buildGroups(out);
+    }
+
+    rendered = 0;
+    el.tbody.textContent = '';
+    el.count.textContent = 'Найдено: ' + fmt(out.length);
+    if (!out.length) {
+      el.tbody.innerHTML = '<tr class="empty"><td colspan="' + COLS +
+        '" class="muted" style="text-align:center;padding:24px">Ничего не найдено</td></tr>';
+      el.sentinel.hidden = true;
+    } else {
+      renderChunk();
+    }
+    if (!keepHash) {
+      // user changed the query: bring the top of the results into view if we were scrolled past it
+      var top = el.wrap.getBoundingClientRect().top + window.scrollY - el.controls.offsetHeight;
+      if (window.scrollY > top) window.scrollTo(0, top);
+    }
+    if (out.length) fill();
+    syncUrl(keepHash);
+  }
+
+  function buildGroups(list) {
+    var oc = Object.create(null), fc = Object.create(null), i, r;
+    for (i = 0; i < list.length; i++) {
+      r = list[i];
+      oc[r.order] = (oc[r.order] || 0) + 1;
+      fc[r._fk] = (fc[r._fk] || 0) + 1;
+    }
+    var res = [], lastO = null, lastF = null;
+    for (i = 0; i < list.length; i++) {
+      r = list[i];
+      if (r.order !== lastO) { res.push({ t: 'o', sci: r.order, n: oc[r.order] }); lastO = r.order; lastF = null; }
+      if (r._fk !== lastF) {
+        res.push({ t: 'f', sci: r.family, key: r._fk, en: r.family_en, n: fc[r._fk] });
+        lastF = r._fk;
+      }
+      res.push(r);
+    }
+    return res;
+  }
+
+  /* ---------- URL state ---------- */
+  function syncUrl(keepHash) {
+    var p = new URLSearchParams();
+    var q = el.q.value.trim();
+    if (q) p.set('q', q);
+    if (el.fExtinct.checked) p.set('extinct', '1');
+    if (el.fProblem.checked) p.set('problems', '1');
+    if (sortKey !== 'seq') p.set('sort', (sortDir < 0 ? '-' : '') + sortKey);
+    var s = p.toString();
+    var url = location.pathname + (s ? '?' + s : '') + (keepHash ? location.hash : '');
+    if (url !== location.pathname + location.search + location.hash) {
+      try { history.replaceState(null, '', url); } catch (e) { /* sandboxed */ }
+    }
+  }
+  function readUrl() {
+    var p = new URLSearchParams(location.search);
+    el.q.value = p.get('q') || '';
+    el.fExtinct.checked = p.get('extinct') === '1';
+    el.fProblem.checked = p.get('problems') === '1';
+    var s = p.get('sort') || '';
+    var dir = s.charAt(0) === '-' ? -1 : 1;
+    s = s.replace(/^-/, '');
+    if (['sci', 'ru', 'en', 'status'].indexOf(s) !== -1) { sortKey = s; sortDir = dir; } else { sortKey = 'seq'; sortDir = 1; }
+    syncSortUi();
+  }
+  function syncSortUi() {
+    el.sort.value = sortKey;
+    el.ths.forEach(function (th) {
+      if (th.getAttribute('data-key') === sortKey) th.setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending');
+      else th.removeAttribute('aria-sort');
+    });
+  }
+
+  /* ---------- permalinks ---------- */
+  function lookup(hash) {
+    var id;
+    try { id = decodeURIComponent(hash.replace(/^#/, '')); } catch (e) { id = hash.replace(/^#/, ''); }
+    if (!id) return null;
+    return byId[id] || byId['avibase-' + id] || null;
+  }
+  function goTo(r, smooth) {
+    var idx = items.indexOf(r);
+    if (idx === -1) {
+      // filtered out: reset search and filters so the species can be shown
+      el.q.value = ''; el.fExtinct.checked = false; el.fProblem.checked = false;
+      apply(true);
+      idx = items.indexOf(r);
+      if (idx === -1) return;
+    }
+    if (idx >= rendered) renderChunk(idx + 60);
+    var row = document.getElementById(r.id);
+    if (!row) return;
+    if (hitRow) { hitRow.classList.remove('hit'); hitRow.removeAttribute('tabindex'); }
+    hitRow = row;
+    row.classList.add('hit');
+    row.setAttribute('tabindex', '-1');
+    row.scrollIntoView({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
+    try { row.focus({ preventScroll: true }); } catch (e) { /* old browsers */ }
+  }
+  function onHash() {
+    var r = lookup(location.hash);
+    if (r) goTo(r, false);
+  }
+  window.addEventListener('hashchange', onHash);
+
+  var toastTimer = null;
+  function toast(html, ms) {
+    el.toast.innerHTML = html;
+    el.toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.toast.hidden = true; }, ms || 2200);
+  }
+  function permalink(id) {
+    return location.origin + location.pathname + '#' + encodeURIComponent(id);
+  }
+  function copyLink(id) {
+    var url = permalink(id);
+    try { history.replaceState(null, '', location.pathname + location.search + '#' + encodeURIComponent(id)); } catch (e) { /* ignore */ }
+    var r = byId[id];
+    if (r) goTo(r, true);
+    function fallback() {
+      toast('Скопируйте ссылку:<input type="text" readonly aria-label="Ссылка на вид" value="' + esc(url) + '">', 8000);
+      var inp = el.toast.querySelector('input');
+      inp.focus(); inp.select();
+      try { if (document.execCommand('copy')) toast('Ссылка скопирована', 2000); } catch (e) { /* keep visible */ }
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(function () { toast('Ссылка скопирована'); }, fallback);
+    } else {
+      fallback();
     }
   }
 
+  /* ---------- events ---------- */
   var timer = null;
   el.q.addEventListener('input', function () {
     clearTimeout(timer);
-    timer = setTimeout(apply, 150);
+    timer = setTimeout(function () { apply(); }, 150);
   });
-  el.fExtinct.addEventListener('change', apply);
-  el.fProblem.addEventListener('change', apply);
-  el.moreBtn.addEventListener('click', renderMore);
+  el.fExtinct.addEventListener('change', function () { apply(); });
+  el.fProblem.addEventListener('change', function () { apply(); });
+  el.sort.addEventListener('change', function () {
+    sortKey = el.sort.value; sortDir = 1;
+    syncSortUi(); apply();
+  });
   el.ths.forEach(function (th) {
     th.querySelector('button').addEventListener('click', function () {
       var key = th.getAttribute('data-key');
       if (key === sortKey) sortDir = -sortDir; else { sortKey = key; sortDir = 1; }
-      el.ths.forEach(function (o) { o.removeAttribute('aria-sort'); });
-      th.setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending');
-      apply();
+      syncSortUi(); apply();
     });
+  });
+  el.tbody.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.plink');
+    if (b) { e.preventDefault(); copyLink(b.getAttribute('data-id')); }
+  });
+  // close open popovers (source badges, legend) when tapping elsewhere or pressing Escape
+  document.addEventListener('click', function (e) {
+    var keep = e.target.closest && e.target.closest('details');
+    document.querySelectorAll('details.src[open], details.legend[open]').forEach(function (d) {
+      if (d !== keep) d.open = false;
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('details.src[open], details.legend[open]').forEach(function (d) { d.open = false; });
+    }
   });
 
   function fail(err) {
@@ -441,6 +596,11 @@
       '<br><span class="muted">' + esc(err && err.message ? err.message : String(err)) + '</span>';
   }
 
+  readUrl();
+  var taxaReq = fetch('data/taxa.json')
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .catch(function () { return null; });
+
   fetch('data/species.json')
     .then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status + ' при загрузке data/species.json');
@@ -448,14 +608,21 @@
     })
     .then(function (json) {
       if (!Array.isArray(json)) throw new Error('Неверный формат данных: ожидался массив');
-      data = json;
+      return taxaReq.then(function (t) { return [json, t]; });
+    })
+    .then(function (res) {
+      try { loadTaxa(res[1]); } catch (e) { /* taxa.json is optional */ }
+      data = res[0];
       data.sort(function (a, b) { return a.seq - b.seq; });
       prepare(data);
       renderSummary();
       el.status.hidden = true;
       el.wrap.hidden = false;
-      [el.q, el.fExtinct, el.fProblem].forEach(function (x) { x.disabled = false; });
-      apply();
+      [el.q, el.fExtinct, el.fProblem, el.sort].forEach(function (x) { x.disabled = false; });
+      apply(true);
+      measure();
+      if (location.hash) onHash();
+      window.__firstPaint = performance.now();
     })
     .catch(fail);
 })();
