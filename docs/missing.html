@@ -9,7 +9,6 @@
 <link rel="stylesheet" href="style.css">
 <style>
   thead .th { display: block; padding: 8px 10px; }
-  .back { display: inline-block; margin-bottom: 8px; font-size: 0.92rem; }
   .lead { margin: 8px 0 0; max-width: 60em; }
   .tabs { gap: 6px; }
   .tab {
@@ -44,7 +43,13 @@
 <body>
 <div class="wrap">
   <header>
-    <a class="back" href="index.html">← Указатель всех видов</a>
+    <nav class="site-nav" aria-label="Разделы сайта">
+      <ul>
+        <li><a href="index.html">Указатель</a></li>
+        <li><a href="missing.html" aria-current="page">Без названия</a></li>
+        <li><a href="sources.html">Источники</a></li>
+      </ul>
+    </nav>
     <h1>Виды без русского названия</h1>
     <p class="lead">Виды, для которых ни в IOC 15.2, ни в eBird, ни в Wikidata нет русского названия. Предложения принимаются через <code>data/overrides.csv</code> или <a href="https://github.com/fastasturtle/birds-index/issues" target="_blank" rel="noopener">issues</a>.</p>
     <p class="summary" id="summary" aria-live="polite"></p>
@@ -106,7 +111,7 @@
       <li>Таксономия и английские названия: <a href="https://www.avilist.org" target="_blank" rel="noopener">AviList</a> v2025b — CC BY 4.0</li>
       <li>Русские названия: <a href="https://worldbirdnames.org" target="_blank" rel="noopener">IOC World Bird List</a> v15.2; дополнительно eBird/Clements 2025 и <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a></li>
     </ul>
-    <p><a href="index.html">Указатель всех видов</a> · <a href="https://github.com/fastasturtle/birds-index" target="_blank" rel="noopener">github.com/fastasturtle/birds-index</a></p>
+    <p><a href="index.html">Указатель всех видов</a> · <a href="sources.html">Источники и ссылки</a> · <a href="https://github.com/fastasturtle/birds-index" target="_blank" rel="noopener">github.com/fastasturtle/birds-index</a></p>
   </footer>
 </div>
 
