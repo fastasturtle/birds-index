@@ -12,7 +12,9 @@ of sources, matched by exact (normalised) scientific name:
 Then the Russian name is normalised: synonyms ("Хохлатый фазан, чир",
 "Гуменник (лесной гуменник)") go from `ru` to the list `ru_alt`, and index
 fields are computed: `ru_head` (leading noun), `ru_book` (book spelling with a
-lower-case first letter), `en_head` (last word of the English name).
+lower-case first letter), `en_head` (last word of the English name). `ru_ebird`
+keeps the eBird/Clements Russian name when it differs from the final `ru`
+(normalised comparison; suppressed by an override `field = ru_ebird`, value "-").
 
 It also writes data/taxa.json: orders and families (in systematic order) with
 Russian names from the ZMMU passerine spreadsheet (family header rows) ->
@@ -79,11 +81,11 @@ EXTINCT_MAP = {
 
 FIELDS = [
     "id", "seq", "order", "family", "family_en", "sci", "authority", "auth", "en",
-    "ru", "ru_alt", "ru_head", "ru_head_source", "ru_book", "en_head",
+    "ru", "ru_alt", "ru_head", "ru_head_source", "ru_book", "en_head", "ru_ebird",
     "ru_source", "ru_status", "ioc_sci", "extinct", "iucn",
 ]
-# Fields computed by normalise_names / add_index_fields; only ru_alt and
-# ru_head may be given in overrides.csv (handled specially).
+# Fields computed by normalise_names / add_ebird_names; only ru_alt, ru_head
+# and ru_ebird (value "-" = suppress) may be given in overrides.csv (handled specially).
 DERIVED_FIELDS = {"ru_head_source", "ru_book", "en_head"}
 
 
@@ -238,6 +240,7 @@ def load_avilist(path: Path) -> list[dict]:
             "en": clean(row.get("English_name_AviList")),
             "ru": None,
             "ru_alt": [],
+            "ru_ebird": None,
             "ru_head": None,
             "ru_head_source": None,
             "ru_book": None,
@@ -611,6 +614,15 @@ def apply_overrides(records, overrides, taxon_keys=frozenset()) -> list[str]:
         if field == "ru_head":
             rec["_head_manual"] = value
             continue
+        if field == "ru_ebird":
+            if value == "-":
+                rec["_ebird_suppressed"] = True
+            else:
+                warnings.append(f"override ru_ebird for {ov['sci']!r}: only '-' (suppress) "
+                                f"is supported, got {value!r}")
+            continue
+        if field == "ru" and value == "-":
+            value = None  # "-" = remove a wrong name: the species becomes "missing"
         if field == "seq":
             value = int(value) if value else rec["seq"]
         rec[field] = value
@@ -802,6 +814,34 @@ def normalise_names(records) -> dict[str, list]:
     return log_
 
 
+def ru_compare_key(name: str) -> str:
+    """Normalised form for comparing Russian names: part before the first comma,
+    case-folded, ё = е, spaces and hyphens ignored."""
+    name = name.split(",")[0].casefold().replace("ё", "е")
+    return re.sub(r"[\s\-\u2010-\u2015]+", "", name)
+
+
+def add_ebird_names(records, ebird) -> tuple[list, list]:
+    """Set `ru_ebird` to the eBird Russian name where it differs from the final
+    `ru` (not for ru_source = ebird). Returns (suppressed, unused suppressions)."""
+    suppressed, unused = [], []
+    for rec in records:
+        name = ebird.get(sci_key(rec["sci"]))
+        differs = bool(name and rec["ru"] and rec["ru_source"] != "ebird"
+                       and ru_compare_key(name) != ru_compare_key(rec["ru"]))
+        if rec.pop("_ebird_suppressed", False):
+            (suppressed if differs else unused).append((rec["sci"], rec["ru"], name))
+            differs = False
+        rec["ru_ebird"] = name if differs else None
+    return suppressed, unused
+
+
+def _test_compare_key() -> None:
+    assert ru_compare_key("Белощекий бюль-бюль") == ru_compare_key("Белощёкий бюльбюль")
+    assert ru_compare_key("Хохлатый фазан, чир") == ru_compare_key("хохлатый  фазан")
+    assert ru_compare_key("Камышовка") != ru_compare_key("Камышевка")
+
+
 def finalise(records):
     for rec in records:
         if rec["ru"] is None:
@@ -848,7 +888,7 @@ def alt_clashes(records) -> list[tuple[str, str, str]]:
 
 
 def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings,
-                 names_log) -> dict:
+                 names_log, ebird_log) -> dict:
     avi_keys = {sci_key(r["sci"]) for r in records}
     total = len(records)
     by_source = Counter(r["ru_source"] for r in records)
@@ -856,12 +896,18 @@ def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_war
     extinct = Counter(r["extinct"] for r in records if r["extinct"])
     not_in_ioc = [r for r in records if sci_key(r["sci"]) not in ioc]
     ioc_only = sorted((v for k, v in ioc.items() if k not in avi_keys), key=lambda v: v["sci"])
+    suppressed, unused_suppress = ebird_log
+    suppressed_keys = {sci_key(s[0]) for s in suppressed}
     diffs = []
     for r in records:
         key = sci_key(r["sci"])
         a, b = (ioc.get(key) or {}).get("ru"), ebird.get(key)
         if a and b and a.casefold() != b.casefold():
-            diffs.append((r["sci"], a, b))
+            diffs.append((r["sci"], a, b, r["ru_ebird"] or "",
+                          "yes" if key in suppressed_keys else ""))
+    for sci, ru, name in unused_suppress:
+        warnings = warnings + [f"override ru_ebird '-' for {sci!r} has no effect "
+                               f"(eBird name {name!r} does not differ from ru {ru!r})"]
 
     counts = {
         "total": total,
@@ -877,6 +923,8 @@ def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_war
         "not_in_ioc": len(not_in_ioc),
         "ioc_not_in_avilist": len(ioc_only),
         "ioc_ebird_diff": len(diffs),
+        "ru_ebird": sum(1 for r in records if r["ru_ebird"]),
+        "ru_ebird_suppressed": len(suppressed),
         "auth_leftover_initials": sum(1 for r in records
                                       if r["auth"] and LEFTOVER_INITIALS.search(r["auth"])),
     }
@@ -924,6 +972,8 @@ def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_war
         ("AviList species not in IOC (exact name)", counts["not_in_ioc"]),
         ("IOC species not in AviList (exact name)", counts["ioc_not_in_avilist"]),
         ("IOC vs eBird Russian name differs", counts["ioc_ebird_diff"]),
+        ("`ru_ebird` set (eBird name differs from `ru`)", counts["ru_ebird"]),
+        ("`ru_ebird` suppressed by override", counts["ru_ebird_suppressed"]),
         ("`auth` with leftover initials", counts["auth_leftover_initials"]),
         ("Names with mixed Cyrillic/Latin words", counts["mixed_script_names"]),
         ("Russian names shared by several species", counts["ru_duplicates"]),
@@ -991,8 +1041,12 @@ def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_war
     L += md_table([(v["sci"], v["en"], v["ru"]) for v in ioc_only],
                   ["IOC scientific name", "English (IOC)", "Russian (IOC)"])
     L += ["", f"## IOC and eBird Russian names differ ({len(diffs)})", "",
-          "Report only; the JSON always prefers IOC.", ""]
-    L += md_table(diffs, ["Scientific name", "IOC", "eBird"])
+          "Case-insensitive comparison of the raw names. `ru` always prefers IOC; "
+          "the eBird name is kept in `ru_ebird` when it still differs from the final `ru` "
+          "after normalisation (ё = е, spaces and hyphens ignored, part before a comma), "
+          "unless suppressed with `field = ru_ebird`, value `-` in `data/overrides.csv` "
+          "(column «подавлено»).", ""]
+    L += md_table(diffs, ["Scientific name", "IOC", "eBird", "ru_ebird", "подавлено"])
     OUT_REPORT.write_text("\n".join(L) + "\n", encoding="utf-8")
     return counts
 
@@ -1009,6 +1063,7 @@ def main() -> None:
     log(f"mode: {mode}")
     _test_normalise_authority()
     _test_names()
+    _test_compare_key()
 
     status = {}
     ensure_file(AVILIST_PATH, AVILIST_URL, mode, required=True)
@@ -1046,6 +1101,7 @@ def main() -> None:
     species_keys = {sci_key(r["sci"]) for r in records}
     warnings = apply_overrides(records, overrides, taxon_keys)
     names_log = normalise_names(records)
+    ebird_log = add_ebird_names(records, ebird)
     finalise(records)
 
     # order / family Russian names
@@ -1086,7 +1142,7 @@ def main() -> None:
 
     write_json(records, taxa)
     counts = write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings,
-                          names_log)
+                          names_log, ebird_log)
 
     print(f"Wrote {OUT_JSON.relative_to(ROOT)}, {OUT_TAXA_JSON.relative_to(ROOT)}, "
           f"{OUT_DOCS_JSON.relative_to(ROOT)}, {OUT_DOCS_TAXA_JSON.relative_to(ROOT)}, "

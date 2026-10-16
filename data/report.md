@@ -14,26 +14,28 @@
 | Metric | Count |
 |---|---|
 | Total species (AviList) | 11131 |
-| Russian name present | 10728 |
-| — from IOC | 10637 |
-| — from eBird | 69 |
+| Russian name present | 10727 |
+| — from IOC | 10636 |
+| — from eBird | 68 |
 | — from Wikidata | 4 |
-| — manual override | 18 |
-| Russian name missing | 403 |
+| — manual override | 19 |
+| Russian name missing | 404 |
 | Extinct | 151 |
 | Extinct in the wild | 5 |
 | Possibly extinct | 46 |
 | AviList species not in IOC (exact name) | 42 |
 | IOC species not in AviList (exact name) | 138 |
 | IOC vs eBird Russian name differs | 164 |
+| `ru_ebird` set (eBird name differs from `ru`) | 120 |
+| `ru_ebird` suppressed by override | 19 |
 | `auth` with leftover initials | 0 |
 | Names with mixed Cyrillic/Latin words | 0 |
-| Russian names shared by several species | 43 |
+| Russian names shared by several species | 42 |
 | `ru` split into `ru` + `ru_alt` | 41 |
 | Species with `ru_alt` | 41 |
 | `ru_alt` names in total | 41 |
 | `ru_alt` equal to another species' `ru` | 0 |
-| Distinct `ru_head` | 1226 |
+| Distinct `ru_head` | 1225 |
 | `ru_head` doubtful (auto) | 15 |
 | `ru_head` manual | 0 |
 | `ru_book` with the capital kept | 69 |
@@ -48,7 +50,7 @@ Look-alike letters (e.g. Latin C in "Cкоморох"); fix in `data/overrides.c
 | Scientific name | Name |
 |---|---|
 
-### Russian names shared by several species (43)
+### Russian names shared by several species (42)
 
 Not fixed automatically; resolve in `data/overrides.csv` when the right name is known.
 
@@ -87,7 +89,6 @@ Not fixed automatically; resolve in `data/overrides.csv` when the right name is 
 | Пятнистый крапивник | *Campylorhynchus gularis* (Spotted Wren, ioc); *Pheugopedius maculipectus* (Spot-breasted Wren, ioc) |
 | Рыжеспинный дрозд | *Geokichla erythronota* (Red-backed Thrush, ioc); *Turdus rufopalliatus* (Rufous-backed Thrush, ioc) |
 | Суматранская нильтава | *Niltava sumatrana* (Rufous-vented Niltava, ioc); *Cyornis herioti* (Blue-breasted Blue Flycatcher, ioc) |
-| Флоресская джунглевая мухоловка | *Eumyias oscillans* (Flores Jungle Flycatcher, ioc); *Eumyias stresemanni* (Sumba Jungle Flycatcher, ebird) |
 | Рыжещёкий заряночник | *Sheppardia poensis* (Short-tailed Akalat, ebird); *Sheppardia bocagei* (Bocage's Akalat, ioc) |
 | Ангольская нектарница | *Cinnyris ludovicensis* (Ludwig's Double-collared Sunbird, ioc); *Cinnyris oustaleti* (Oustalet's Sunbird, ioc) |
 | Голубокрылая листовка | *Chloropsis moluccensis* (Blue-winged Leafbird, ebird); *Chloropsis cochinchinensis* (Javan Leafbird, ioc) |
@@ -168,7 +169,7 @@ The parenthesis does not look like a name (comment, Latin, digits); not split.
 | бюльбюль | 142 |
 | танагра | 127 |
 | нектарница | 123 |
-| мухоловка | 106 |
+| мухоловка | 105 |
 | белоглазка | 100 |
 | горлица | 96 |
 | козодой | 92 |
@@ -388,7 +389,7 @@ Sources: ZMMU passerine list family headers (`zmmu`), Wikidata (`wikidata`), `da
 | Stiphrornis mabirae | Yellow-breasted Forest Robin | — |
 | Emblema modestum | Plum-headed Finch | ebird |
 
-## Species with no Russian name anywhere (403)
+## Species with no Russian name anywhere (404)
 
 | Scientific name | English |
 |---|---|
@@ -719,6 +720,7 @@ Sources: ZMMU passerine list family headers (`zmmu`), Wikidata (`wikidata`), `da
 | Copsychus omissus | Larwo Shama |
 | Copsychus superciliaris | Visayan Shama |
 | Niltava oatesi | Chinese Vivid Niltava |
+| Eumyias stresemanni | Sumba Jungle Flycatcher |
 | Cyornis camarinensis | Rufous-breasted Blue Flycatcher |
 | Cyornis montanus | Dayak Blue Flycatcher |
 | Cyornis kadayangensis | Meratus Blue Flycatcher |
@@ -941,171 +943,171 @@ Sources: ZMMU passerine list family headers (`zmmu`), Wikidata (`wikidata`), `da
 
 ## IOC and eBird Russian names differ (164)
 
-Report only; the JSON always prefers IOC.
+Case-insensitive comparison of the raw names. `ru` always prefers IOC; the eBird name is kept in `ru_ebird` when it still differs from the final `ru` after normalisation (ё = е, spaces and hyphens ignored, part before a comma), unless suppressed with `field = ru_ebird`, value `-` in `data/overrides.csv` (column «подавлено»).
 
-| Scientific name | IOC | eBird |
-|---|---|---|
-| Anser canagicus | Белошей | Гусь-белошей |
-| Anser fabalis | Гуменник (лесной гуменник) | Лесной гуменник |
-| Melanitta deglandi | Горбоносый турпан | Белокрылый турпан |
-| Cyrtonyx montezumae | Плачущий перепел, перепел Монтесумы | Плачущий перепел |
-| Catreus wallichii | Хохлатый фазан, чир | Хохлатый фазан |
-| Coua cursor | Желтогорлая тивука, тивука-бегун | Желтогорлая тивука |
-| Fulica newtonii | Маскаренская лысуха | Маврикийская лысуха |
-| Ardea coromanda | Коровья цапля | Восточная египетская цапля |
-| Hirundapus caudacutus | Колючехвост, колючехвостый стриж | Колючехвост |
-| Cynanthus doubledayi | Мексиканский колибри | Мексиканский изумруд |
-| Sarcoramphus papa | Королевская катарта, королевский гриф | Королевская катарта |
-| Cathartes aura | Катарта-индейка, гриф-индейка | Катарта-индейка |
-| Buceros bicornis | Двурогий калао, гомрай | Двурогий калао |
-| Campethera maculosa | Гвинейский дятел | Зеленоспинный дятел |
-| Caracara plancus | Равнинная каракара, каранчо | Равнинная каракара |
-| Strigops habroptilus | Какапо, совиный попугай | Какапо |
-| Loriculus galgulus | Малайский лорикулюс, серендак | Малайский лорикулюс |
-| Limnoctites rectirostris | Болотный прямоклюв | Прямоклюв |
-| Limnoctites sulphuriferus | Желтобородый прямоклюв | Желтобородая курутия |
-| Aethomyias nigrorufus | Рыжебрюхая кустовка | Чёрно-рыжая мышевидка |
-| Oriolus oriolus | Иволга | Обыкновенная иволга |
-| Dicrurus hottentottus | Лирохвостый дронго | Индийский дронго |
-| Dicrurus macrocercus | Чёрный дронго | Черный дронго |
-| Terpsiphone atrocaudata | Чёрная райская мухоловка | Черная райская мухоловка |
-| Lophorina superba | Большая лофорина | Арфакская лофорина |
-| Platylophus galericulatus | Сорокопутовая сойка | Хохлатая малайская сойка |
-| Lanius meridionalis | Иберийский сорокопут | Пиренейский сорокопут |
-| Lanius tigrinus | Тигровый жулан, тигровый сорокопут | Тигровый сорокопут |
-| Lanius isabellinus | Буланый жулан | Рыжехвостый жулан |
-| Lanius collurio | Жулан | Обыкновенный жулан |
-| Lanius phoenicuroides | Туркестанский жулан, рыжехвостый жулан | Туркестанский жулан |
-| Lanius schach | Длиннохвостый сорокопут, сорокопут-шах | Длиннохвостый сорокопут |
-| Pyrrhocorax graculus | Альпийская галка, альпийская клушица | Альпийская галка |
-| Podoces hendersoni | Монгольская пустынная сойка | Монгольская сойка |
-| Nucifraga caryocatactes | Кедровка, ореховка | Кедровка |
-| Culicicapa ceylonensis | Сероголовый комаролов | Сероголовая комароловка |
-| Remiz pendulinus | Ремез | Обыкновенный ремез |
-| Cyanistes cyanus | Князёк, белая лазоревка | Белая лазоревка |
-| Periparus venustulus | Короткохвостая синица | Желтобрюхая синица |
-| Lophophanes cristatus | Хохлатая синица, гренадерка | Хохлатая синица |
-| Panurus biarmicus | Усатка, усатая синица | Усатая синица |
-| Lullula arborea | Лесной жаворонок, юла | Лесной жаворонок |
-| Galerida theklae | Короткохохлый жаворонок | Короткопалый хохлатый жаворонок |
-| Eremophila alpestris | Рогатый жаворонок, рюм | Рогатый жаворонок |
-| Calandrella cinerea | Красноголовый жаворонок | Африканский малый жаворонок |
-| Cisticola juncidis | Веерохвостая цистикола | Золотистая цистикола |
-| Arundinax aedon | Толстоклювая камышовка | Толстоклювая камышевка |
-| Iduna pallida | Бледная бормотушка | Бледная пересмешка |
-| Acrocephalus schoenobaenus | камышовка-барсучок | Камышевка-барсучок |
-| Acrocephalus bistrigiceps | Чернобровая камышовка | Пестроголовая камышевка |
-| Acrocephalus sorghophilus | Просяная камышовка | Просяная камышевка |
-| Acrocephalus paludicola | Вертлявая камышовка | Вертлявая камышевка |
-| Acrocephalus melanopogon | Тонкоклювая камышовка | Тонкоклювая камышевка |
-| Acrocephalus agricola | Индийская камышовка | Индийская камышевка |
-| Acrocephalus tangorum | Маньчжурская камышовка | Маньчжурская камышевка |
-| Acrocephalus dumetorum | Садовая камышовка | Садовая камышевка |
-| Acrocephalus orinus | Большеклювая камышовка | Большеклювая камышевка |
-| Acrocephalus palustris | Болотная камышовка | Болотная камышевка |
-| Acrocephalus scirpaceus | Тростниковая камышовка | Тростниковая камышевка |
-| Acrocephalus arundinaceus | Дроздовидная камышовка | Дроздовидная камышевка |
-| Acrocephalus orientalis | Восточная камышовка | Восточная дроздовидная камышевка |
-| Acrocephalus stentoreus | Голосистая камышовка | Южная дроздовидная камышевка |
-| Helopsaltes fasciolatus | Таёжный сверчок | Таежный сверчок |
-| Progne subis | Пурпурная ласточка | Большая ласточка |
-| Hirundo rustica | Деревенская ласточка, ласточка-касатка | Деревенская ласточка |
-| Delichon urbicum | Воронок, городская ласточка | Воронок |
-| Cecropis daurica | Рыжепоясничная ласточка | Восточная рыжепоясничная ласточка |
-| Petrochelidon pyrrhonota | Светлолобая ласточка | Белолобая ласточка |
-| Leptopoecile elegans | Элегантная синичка | Хохлатая расписная синичка |
-| Horornis diphone | Бамбуковая широкохвостка | Бамбуковая камышевка |
-| Horornis canturians | Короткокрылая широкохвостка | Короткокрылая камышевка |
-| Phylloscopus humei | Тусклая зарничка | Тусклая пеночка |
-| Phylloscopus subviridis | Кашмирская зарничка | Пеночка гималайская |
-| Phylloscopus proregulus | Корольковая пеночка, корольковая зарничка | Корольковая пеночка |
-| Phylloscopus schwarzi | Толстоклювая пеночка, голосистая пеночка | Толстоклювая пеночка |
-| Phylloscopus armandii | Субальпийская пеночка | Пеночка Арманда |
-| Phylloscopus reguloides | Рододендровая пеночка | Корольковидная пеночка |
-| Phylloscopus poliocephalus | Папуанская пеночка | Нумфорская пеночка |
-| Pycnonotus leucogenys | Белощёкий бюльбюль | Белощекий бюль-бюль |
-| Hypsipetes amaurotis | Рыжеухий бюльбюль | Короткопалый бюль-бюль |
-| Hypsipetes leucocephalus | Белоголовый бюльбюль | Черный бюль-бюль |
-| Sylvia atricapilla | Славка-черноголовка | Черноголовая славка |
-| Curruca curruca | Славка-мельничек | Славка-завирушка |
-| Curruca hortensis | Славка-орфей | Певчая славка |
-| Curruca crassirostris | Певчая славка | Восточноорфейская славка |
-| Trochalopteron lineatum | Полосатая кустарница | Полосатая тимелия |
-| Argya squamiceps | Аравийская дроздовка | Ававийская дроздовка |
-| Garrulax canorus | Очковая кустарница, хуамей | Очковая кустарница |
-| Bombycilla japonica | Амурский свиристель | Японский свиристель |
-| Hypocolius ampelinus | Сорокопутовый свиристель | Свиристелевый сорокопут |
-| Corthylio calendula | Рубиновоголовый королёк | Рубиноголовый королёк |
-| Tichodroma muraria | Краснокрылый стенолаз | Стенолаз |
-| Sitta krueperi | Рыжегрудый поползень | Черноголовый поползень |
-| Sitta europaea | Поползень | Обыкновенный поползень |
-| Certhia hodgsoni | Кашмирская пищуха | Кашмирская пищуху |
-| Certhia familiaris | Пищуха | Обыкновенная пищуха |
-| Mimus polyglottos | Многоголосый пересмешинк | Многоголосый пересмешник |
-| Sturnus vulgaris | Скворец | Обыкновенный скворец |
-| Agropsar philippensis | Красноухий скворец | Японский скворец |
-| Spodiopsar sericeus | Шелковистый скворец | Красноклювый скворец |
-| Catharus ustulatus | Свэнсонов дрозд | Дрозд Свэнсона |
-| Turdus naumanni | Рыжий дрозд | Дрозд Науманна |
-| Luscinia luscinia | Восточный соловей | Обыкновенный соловей |
-| Ficedula zanthopygia | Желтоспинная мухоловка | Даурская желтоспинная мухоловка |
-| Ficedula narcissina | Японская мухоловка | Японская желтоспинная мухоловка |
-| Ficedula mugimaki | Таёжная мухоловка | Таежная мухоловка |
-| Ficedula albicilla | Восточная мухоловка | Восточная малая мухоловка |
-| Phoenicurus ochruros | Горихвостка-чернушка | Черная горихвостка |
-| Phoenicurus phoenicurus | Горихвостка-лысушка | Обыкновенная горихвостка |
-| Monticola gularis | Белогорлый каменный дрозд | Белогорлый дрозд |
-| Saxicola caprata | Чёрный чекан | Черный чекан |
-| Saxicola maurus | Азиатский черноголовый чекан | Сибирский черноголовый чекан |
-| Saxicola rubicola | Западный черноголовый чекан | Черноголовый чекан |
-| Oenanthe oenanthe | Каменка | Обыкновенная каменка |
-| Oenanthe picata | Чёрная каменка | Черная каменка |
-| Oenanthe lugens | Траурная каменка | Черноспинная каменка |
-| Oenanthe xanthoprymna | Курдская каменка | Курдистанская каменка |
-| Leptocoma sperata | Пурпурногорлая нектарница | Пурпурногорлая нектраница |
-| Nectarinia bocagii | Сверкающая нектарница | Сверкающая нектраница |
-| Cinnyris manoensis | Миомбская нектарница | Миомбская нектраница |
-| Cinnyris reichenowi | Желтоплечая нектарница | Желтоплечая нектраница |
-| Cinnyris afer | Серобрюхая нектарница | Серобрюхая нектраница |
-| Cinnyris osea | Палестинская нектарница | Палестинская некатарница |
-| Lonchura flaviprymna | Желтопоясничная муния | Жёлтопоясничная муния |
-| Prunella ocularis | Пёстрая завирушка | Йеменская завирушка |
-| Prunella koslowi | Монгольская завирушка | Завирушка Козлова |
-| Montifringilla nivalis | Снежный воробей | Снежный вьюрок |
-| Passer zarudnyi | Пустынный воробей | Воробей пустынный |
-| Anthus godlewskii | Конёк Годлевского | Забайкальский конёк |
-| Anthus rufulus | Рисовый конёк | Рисовой конёк |
-| Anthus rubescens | Гольцовый конёк | Американский конёк |
-| Fringilla montifringilla | Юрок | Вьюрок |
-| Mycerobas affinis | Ошейниковый дубонос | Ошейниковый горный дубонос |
-| Mycerobas melanozanthos | Пестрокрылый дубонос | Пестрокрылый горный дубонос |
-| Mycerobas carnipes | Арчовый дубонос | Арчевый горный дубонос |
-| Coccothraustes coccothraustes | Дубонос | Обыкновенный дубонос |
-| Carpodacus erythrinus | Чечевица | Обыкновенная чечевица |
-| Carpodacus puniceus | Красная чечевица, красный вьюрок | Красный вьюрок |
-| Bucanetes mongolicus | Монгольский вьюрок | Монгольский пустынный вьюрок |
-| Bucanetes githagineus | Пустынный вьюрок | Толстоклювый пустынный вьюрок |
-| Leucosticte arctoa | Сибирский горный вьюрок | Сибирский вьюрок |
-| Leucosticte tephrocotis | Американский горный вьюрок | Американский вьюрок |
-| Chloris chloris | Зеленушка | Обыкновенная зеленушка |
-| Linaria flavirostris | Горная коноплянка | Горная чечётка |
-| Serinus serinus | Канареечный вьюрок, европейский вьюрок | Европейский вьюрок |
-| Plectrophenax hyperboreus | Островная пуночка | Белая пуночка |
-| Emberiza schoeniclus | Камышовая овсянка, стренатка | Тростниковая овсянка |
-| Emberiza tristrami | Таёжная овсянка | Таежная овсянка |
-| Emberiza sulphurata | Японская овсянка | Японская желтая овсянка |
-| Emberiza buchanani | Скальная овсянка | Скалистая овсянка |
-| Emberiza caesia | Красноклювая овсянка | Овсянка Крешмара |
-| Emberiza citrinella | Овсянка, обыкновенная овсянка | Обыкновенная овсянка |
-| Spizella passerina | Воробьиная овсянка | Малая воробьиная овсянка |
-| Arremon phygas | Париайский тохи | Париайский дромник |
-| Spizelloides arborea | Древесная овсянка | Воробьиная овсянка |
-| Passerella iliaca | Лисья овсянка | Пестрогрудая овсянка |
-| Junco hyemalis | Темноглазый юнко | Серый юнко |
-| Zonotrichia atricapilla | Чернобровая зонотрихия | Чернобровая овсянка |
-| Zonotrichia leucophrys | Белобровая зонотрихия | Белобровая овсянка |
-| Melospiza georgiana | Болотная овсянка | Болотная зонотрихия |
-| Atlapetes personatus | Капюшоновая атлапета | Капюшоновая ая атлапета |
-| Spindalis dominicensis | Гаитянская зена | Каитянская зена |
-| Sturnella neglecta | Жаворонковый луговой трупиал | Западный луговой трупиал |
-| Setophaga coronata | Миртовая древесница | Миртовый певун |
+| Scientific name | IOC | eBird | ru_ebird | подавлено |
+|---|---|---|---|---|
+| Anser canagicus | Белошей | Гусь-белошей | Гусь-белошей |  |
+| Anser fabalis | Гуменник (лесной гуменник) | Лесной гуменник | Лесной гуменник |  |
+| Melanitta deglandi | Горбоносый турпан | Белокрылый турпан |  |  |
+| Cyrtonyx montezumae | Плачущий перепел, перепел Монтесумы | Плачущий перепел |  |  |
+| Catreus wallichii | Хохлатый фазан, чир | Хохлатый фазан |  |  |
+| Coua cursor | Желтогорлая тивука, тивука-бегун | Желтогорлая тивука |  |  |
+| Fulica newtonii | Маскаренская лысуха | Маврикийская лысуха | Маврикийская лысуха |  |
+| Ardea coromanda | Коровья цапля | Восточная египетская цапля | Восточная египетская цапля |  |
+| Hirundapus caudacutus | Колючехвост, колючехвостый стриж | Колючехвост |  |  |
+| Cynanthus doubledayi | Мексиканский колибри | Мексиканский изумруд | Мексиканский изумруд |  |
+| Sarcoramphus papa | Королевская катарта, королевский гриф | Королевская катарта |  |  |
+| Cathartes aura | Катарта-индейка, гриф-индейка | Катарта-индейка |  |  |
+| Buceros bicornis | Двурогий калао, гомрай | Двурогий калао |  |  |
+| Campethera maculosa | Гвинейский дятел | Зеленоспинный дятел | Зеленоспинный дятел |  |
+| Caracara plancus | Равнинная каракара, каранчо | Равнинная каракара |  |  |
+| Strigops habroptilus | Какапо, совиный попугай | Какапо |  |  |
+| Loriculus galgulus | Малайский лорикулюс, серендак | Малайский лорикулюс |  |  |
+| Limnoctites rectirostris | Болотный прямоклюв | Прямоклюв | Прямоклюв |  |
+| Limnoctites sulphuriferus | Желтобородый прямоклюв | Желтобородая курутия | Желтобородая курутия |  |
+| Aethomyias nigrorufus | Рыжебрюхая кустовка | Чёрно-рыжая мышевидка | Чёрно-рыжая мышевидка |  |
+| Oriolus oriolus | Иволга | Обыкновенная иволга | Обыкновенная иволга |  |
+| Dicrurus hottentottus | Лирохвостый дронго | Индийский дронго | Индийский дронго |  |
+| Dicrurus macrocercus | Чёрный дронго | Черный дронго |  |  |
+| Terpsiphone atrocaudata | Чёрная райская мухоловка | Черная райская мухоловка |  |  |
+| Lophorina superba | Большая лофорина | Арфакская лофорина | Арфакская лофорина |  |
+| Platylophus galericulatus | Сорокопутовая сойка | Хохлатая малайская сойка | Хохлатая малайская сойка |  |
+| Lanius meridionalis | Иберийский сорокопут | Пиренейский сорокопут | Пиренейский сорокопут |  |
+| Lanius tigrinus | Тигровый жулан, тигровый сорокопут | Тигровый сорокопут | Тигровый сорокопут |  |
+| Lanius isabellinus | Буланый жулан | Рыжехвостый жулан | Рыжехвостый жулан |  |
+| Lanius collurio | Жулан | Обыкновенный жулан | Обыкновенный жулан |  |
+| Lanius phoenicuroides | Туркестанский жулан, рыжехвостый жулан | Туркестанский жулан |  |  |
+| Lanius schach | Длиннохвостый сорокопут, сорокопут-шах | Длиннохвостый сорокопут |  |  |
+| Pyrrhocorax graculus | Альпийская галка, альпийская клушица | Альпийская галка |  |  |
+| Podoces hendersoni | Монгольская пустынная сойка | Монгольская сойка | Монгольская сойка |  |
+| Nucifraga caryocatactes | Кедровка, ореховка | Кедровка |  |  |
+| Culicicapa ceylonensis | Сероголовый комаролов | Сероголовая комароловка | Сероголовая комароловка |  |
+| Remiz pendulinus | Ремез | Обыкновенный ремез | Обыкновенный ремез |  |
+| Cyanistes cyanus | Князёк, белая лазоревка | Белая лазоревка | Белая лазоревка |  |
+| Periparus venustulus | Короткохвостая синица | Желтобрюхая синица | Желтобрюхая синица |  |
+| Lophophanes cristatus | Хохлатая синица, гренадерка | Хохлатая синица |  |  |
+| Panurus biarmicus | Усатка, усатая синица | Усатая синица | Усатая синица |  |
+| Lullula arborea | Лесной жаворонок, юла | Лесной жаворонок |  |  |
+| Galerida theklae | Короткохохлый жаворонок | Короткопалый хохлатый жаворонок | Короткопалый хохлатый жаворонок |  |
+| Eremophila alpestris | Рогатый жаворонок, рюм | Рогатый жаворонок |  |  |
+| Calandrella cinerea | Красноголовый жаворонок | Африканский малый жаворонок | Африканский малый жаворонок |  |
+| Cisticola juncidis | Веерохвостая цистикола | Золотистая цистикола | Золотистая цистикола |  |
+| Arundinax aedon | Толстоклювая камышовка | Толстоклювая камышевка | Толстоклювая камышевка |  |
+| Iduna pallida | Бледная бормотушка | Бледная пересмешка | Бледная пересмешка |  |
+| Acrocephalus schoenobaenus | камышовка-барсучок | Камышевка-барсучок | Камышевка-барсучок |  |
+| Acrocephalus bistrigiceps | Чернобровая камышовка | Пестроголовая камышевка | Пестроголовая камышевка |  |
+| Acrocephalus sorghophilus | Просяная камышовка | Просяная камышевка | Просяная камышевка |  |
+| Acrocephalus paludicola | Вертлявая камышовка | Вертлявая камышевка | Вертлявая камышевка |  |
+| Acrocephalus melanopogon | Тонкоклювая камышовка | Тонкоклювая камышевка | Тонкоклювая камышевка |  |
+| Acrocephalus agricola | Индийская камышовка | Индийская камышевка | Индийская камышевка |  |
+| Acrocephalus tangorum | Маньчжурская камышовка | Маньчжурская камышевка | Маньчжурская камышевка |  |
+| Acrocephalus dumetorum | Садовая камышовка | Садовая камышевка | Садовая камышевка |  |
+| Acrocephalus orinus | Большеклювая камышовка | Большеклювая камышевка | Большеклювая камышевка |  |
+| Acrocephalus palustris | Болотная камышовка | Болотная камышевка | Болотная камышевка |  |
+| Acrocephalus scirpaceus | Тростниковая камышовка | Тростниковая камышевка | Тростниковая камышевка |  |
+| Acrocephalus arundinaceus | Дроздовидная камышовка | Дроздовидная камышевка | Дроздовидная камышевка |  |
+| Acrocephalus orientalis | Восточная камышовка | Восточная дроздовидная камышевка | Восточная дроздовидная камышевка |  |
+| Acrocephalus stentoreus | Голосистая камышовка | Южная дроздовидная камышевка | Южная дроздовидная камышевка |  |
+| Helopsaltes fasciolatus | Таёжный сверчок | Таежный сверчок |  |  |
+| Progne subis | Пурпурная ласточка | Большая ласточка | Большая ласточка |  |
+| Hirundo rustica | Деревенская ласточка, ласточка-касатка | Деревенская ласточка |  |  |
+| Delichon urbicum | Воронок, городская ласточка | Воронок |  |  |
+| Cecropis daurica | Рыжепоясничная ласточка | Восточная рыжепоясничная ласточка | Восточная рыжепоясничная ласточка |  |
+| Petrochelidon pyrrhonota | Светлолобая ласточка | Белолобая ласточка | Белолобая ласточка |  |
+| Leptopoecile elegans | Элегантная синичка | Хохлатая расписная синичка | Хохлатая расписная синичка |  |
+| Horornis diphone | Бамбуковая широкохвостка | Бамбуковая камышевка | Бамбуковая камышевка |  |
+| Horornis canturians | Короткокрылая широкохвостка | Короткокрылая камышевка | Короткокрылая камышевка |  |
+| Phylloscopus humei | Тусклая зарничка | Тусклая пеночка | Тусклая пеночка |  |
+| Phylloscopus subviridis | Кашмирская зарничка | Пеночка гималайская | Пеночка гималайская |  |
+| Phylloscopus proregulus | Корольковая пеночка, корольковая зарничка | Корольковая пеночка |  |  |
+| Phylloscopus schwarzi | Толстоклювая пеночка, голосистая пеночка | Толстоклювая пеночка |  |  |
+| Phylloscopus armandii | Субальпийская пеночка | Пеночка Арманда | Пеночка Арманда |  |
+| Phylloscopus reguloides | Рододендровая пеночка | Корольковидная пеночка | Корольковидная пеночка |  |
+| Phylloscopus poliocephalus | Папуанская пеночка | Нумфорская пеночка | Нумфорская пеночка |  |
+| Pycnonotus leucogenys | Белощёкий бюльбюль | Белощекий бюль-бюль |  |  |
+| Hypsipetes amaurotis | Рыжеухий бюльбюль | Короткопалый бюль-бюль | Короткопалый бюль-бюль |  |
+| Hypsipetes leucocephalus | Белоголовый бюльбюль | Черный бюль-бюль | Черный бюль-бюль |  |
+| Sylvia atricapilla | Славка-черноголовка | Черноголовая славка | Черноголовая славка |  |
+| Curruca curruca | Славка-мельничек | Славка-завирушка | Славка-завирушка |  |
+| Curruca hortensis | Славка-орфей | Певчая славка | Певчая славка |  |
+| Curruca crassirostris | Певчая славка | Восточноорфейская славка | Восточноорфейская славка |  |
+| Trochalopteron lineatum | Полосатая кустарница | Полосатая тимелия | Полосатая тимелия |  |
+| Argya squamiceps | Аравийская дроздовка | Ававийская дроздовка |  | yes |
+| Garrulax canorus | Очковая кустарница, хуамей | Очковая кустарница |  |  |
+| Bombycilla japonica | Амурский свиристель | Японский свиристель | Японский свиристель |  |
+| Hypocolius ampelinus | Сорокопутовый свиристель | Свиристелевый сорокопут | Свиристелевый сорокопут |  |
+| Corthylio calendula | Рубиновоголовый королёк | Рубиноголовый королёк | Рубиноголовый королёк |  |
+| Tichodroma muraria | Краснокрылый стенолаз | Стенолаз | Стенолаз |  |
+| Sitta krueperi | Рыжегрудый поползень | Черноголовый поползень | Черноголовый поползень |  |
+| Sitta europaea | Поползень | Обыкновенный поползень | Обыкновенный поползень |  |
+| Certhia hodgsoni | Кашмирская пищуха | Кашмирская пищуху |  | yes |
+| Certhia familiaris | Пищуха | Обыкновенная пищуха | Обыкновенная пищуха |  |
+| Mimus polyglottos | Многоголосый пересмешинк | Многоголосый пересмешник |  |  |
+| Sturnus vulgaris | Скворец | Обыкновенный скворец | Обыкновенный скворец |  |
+| Agropsar philippensis | Красноухий скворец | Японский скворец | Японский скворец |  |
+| Spodiopsar sericeus | Шелковистый скворец | Красноклювый скворец | Красноклювый скворец |  |
+| Catharus ustulatus | Свэнсонов дрозд | Дрозд Свэнсона | Дрозд Свэнсона |  |
+| Turdus naumanni | Рыжий дрозд | Дрозд Науманна | Дрозд Науманна |  |
+| Luscinia luscinia | Восточный соловей | Обыкновенный соловей | Обыкновенный соловей |  |
+| Ficedula zanthopygia | Желтоспинная мухоловка | Даурская желтоспинная мухоловка | Даурская желтоспинная мухоловка |  |
+| Ficedula narcissina | Японская мухоловка | Японская желтоспинная мухоловка | Японская желтоспинная мухоловка |  |
+| Ficedula mugimaki | Таёжная мухоловка | Таежная мухоловка |  |  |
+| Ficedula albicilla | Восточная мухоловка | Восточная малая мухоловка | Восточная малая мухоловка |  |
+| Phoenicurus ochruros | Горихвостка-чернушка | Черная горихвостка | Черная горихвостка |  |
+| Phoenicurus phoenicurus | Горихвостка-лысушка | Обыкновенная горихвостка | Обыкновенная горихвостка |  |
+| Monticola gularis | Белогорлый каменный дрозд | Белогорлый дрозд | Белогорлый дрозд |  |
+| Saxicola caprata | Чёрный чекан | Черный чекан |  |  |
+| Saxicola maurus | Азиатский черноголовый чекан | Сибирский черноголовый чекан | Сибирский черноголовый чекан |  |
+| Saxicola rubicola | Западный черноголовый чекан | Черноголовый чекан | Черноголовый чекан |  |
+| Oenanthe oenanthe | Каменка | Обыкновенная каменка | Обыкновенная каменка |  |
+| Oenanthe picata | Чёрная каменка | Черная каменка |  |  |
+| Oenanthe lugens | Траурная каменка | Черноспинная каменка | Черноспинная каменка |  |
+| Oenanthe xanthoprymna | Курдская каменка | Курдистанская каменка | Курдистанская каменка |  |
+| Leptocoma sperata | Пурпурногорлая нектарница | Пурпурногорлая нектраница |  | yes |
+| Nectarinia bocagii | Сверкающая нектарница | Сверкающая нектраница |  | yes |
+| Cinnyris manoensis | Миомбская нектарница | Миомбская нектраница |  | yes |
+| Cinnyris reichenowi | Желтоплечая нектарница | Желтоплечая нектраница |  | yes |
+| Cinnyris afer | Серобрюхая нектарница | Серобрюхая нектраница |  | yes |
+| Cinnyris osea | Палестинская нектарница | Палестинская некатарница |  | yes |
+| Lonchura flaviprymna | Желтопоясничная муния | Жёлтопоясничная муния |  |  |
+| Prunella ocularis | Пёстрая завирушка | Йеменская завирушка | Йеменская завирушка |  |
+| Prunella koslowi | Монгольская завирушка | Завирушка Козлова | Завирушка Козлова |  |
+| Montifringilla nivalis | Снежный воробей | Снежный вьюрок | Снежный вьюрок |  |
+| Passer zarudnyi | Пустынный воробей | Воробей пустынный | Воробей пустынный |  |
+| Anthus godlewskii | Конёк Годлевского | Забайкальский конёк | Забайкальский конёк |  |
+| Anthus rufulus | Рисовый конёк | Рисовой конёк |  | yes |
+| Anthus rubescens | Гольцовый конёк | Американский конёк | Американский конёк |  |
+| Fringilla montifringilla | Юрок | Вьюрок | Вьюрок |  |
+| Mycerobas affinis | Ошейниковый дубонос | Ошейниковый горный дубонос | Ошейниковый горный дубонос |  |
+| Mycerobas melanozanthos | Пестрокрылый дубонос | Пестрокрылый горный дубонос | Пестрокрылый горный дубонос |  |
+| Mycerobas carnipes | Арчовый дубонос | Арчевый горный дубонос | Арчевый горный дубонос |  |
+| Coccothraustes coccothraustes | Дубонос | Обыкновенный дубонос | Обыкновенный дубонос |  |
+| Carpodacus erythrinus | Чечевица | Обыкновенная чечевица | Обыкновенная чечевица |  |
+| Carpodacus puniceus | Красная чечевица, красный вьюрок | Красный вьюрок | Красный вьюрок |  |
+| Bucanetes mongolicus | Монгольский вьюрок | Монгольский пустынный вьюрок | Монгольский пустынный вьюрок |  |
+| Bucanetes githagineus | Пустынный вьюрок | Толстоклювый пустынный вьюрок | Толстоклювый пустынный вьюрок |  |
+| Leucosticte arctoa | Сибирский горный вьюрок | Сибирский вьюрок | Сибирский вьюрок |  |
+| Leucosticte tephrocotis | Американский горный вьюрок | Американский вьюрок | Американский вьюрок |  |
+| Chloris chloris | Зеленушка | Обыкновенная зеленушка | Обыкновенная зеленушка |  |
+| Linaria flavirostris | Горная коноплянка | Горная чечётка | Горная чечётка |  |
+| Serinus serinus | Канареечный вьюрок, европейский вьюрок | Европейский вьюрок | Европейский вьюрок |  |
+| Plectrophenax hyperboreus | Островная пуночка | Белая пуночка | Белая пуночка |  |
+| Emberiza schoeniclus | Камышовая овсянка, стренатка | Тростниковая овсянка | Тростниковая овсянка |  |
+| Emberiza tristrami | Таёжная овсянка | Таежная овсянка |  |  |
+| Emberiza sulphurata | Японская овсянка | Японская желтая овсянка | Японская желтая овсянка |  |
+| Emberiza buchanani | Скальная овсянка | Скалистая овсянка | Скалистая овсянка |  |
+| Emberiza caesia | Красноклювая овсянка | Овсянка Крешмара | Овсянка Крешмара |  |
+| Emberiza citrinella | Овсянка, обыкновенная овсянка | Обыкновенная овсянка | Обыкновенная овсянка |  |
+| Spizella passerina | Воробьиная овсянка | Малая воробьиная овсянка | Малая воробьиная овсянка |  |
+| Arremon phygas | Париайский тохи | Париайский дромник | Париайский дромник |  |
+| Spizelloides arborea | Древесная овсянка | Воробьиная овсянка | Воробьиная овсянка |  |
+| Passerella iliaca | Лисья овсянка | Пестрогрудая овсянка | Пестрогрудая овсянка |  |
+| Junco hyemalis | Темноглазый юнко | Серый юнко | Серый юнко |  |
+| Zonotrichia atricapilla | Чернобровая зонотрихия | Чернобровая овсянка | Чернобровая овсянка |  |
+| Zonotrichia leucophrys | Белобровая зонотрихия | Белобровая овсянка | Белобровая овсянка |  |
+| Melospiza georgiana | Болотная овсянка | Болотная зонотрихия | Болотная зонотрихия |  |
+| Atlapetes personatus | Капюшоновая атлапета | Капюшоновая ая атлапета |  | yes |
+| Spindalis dominicensis | Гаитянская зена | Каитянская зена |  | yes |
+| Sturnella neglecta | Жаворонковый луговой трупиал | Западный луговой трупиал | Западный луговой трупиал |  |
+| Setophaga coronata | Миртовая древесница | Миртовый певун | Миртовый певун |  |

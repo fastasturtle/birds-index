@@ -38,3 +38,24 @@ Caprimulgus stellatus,ru,Звёздчатый козодой,"""Звездчат
 Aepypodius arfakianus,ru,Серёжчатый курохвост,"""Серёжчатий курохвост"" — опечатка в IOC 15.2: в остальных 8 названиях «серёжчатый»"
 Aepypodius bruijnii,ru,Красноголовый курохвост,"""Красноголовий курохвост"" — опечатка в IOC 15.2 (как у соседнего Aepypodius arfakianus): прилагательное «красноголовый»"
 Locustella portenta,ru,Талиабусская пестрогрудка,"""Талиабусская пестрогудка"" — опечатка в IOC 15.2: у остальных 19 видов Locustella (Bush Warbler) — «пестрогрудка»"
+Aepypodius bruijnii,ru_ebird,-,"eBird ru «Красноголовий курохвост» — та же опечатка, что в IOC 15.2 (исправлена в ru); не включать в ru_ebird"
+Aepypodius arfakianus,ru_ebird,-,"eBird ru «Серёжчатий курохвост» — та же опечатка, что в IOC 15.2 (исправлена в ru); не включать в ru_ebird"
+Riccordia bracei,ru_ebird,-,"eBird ru «Багамскимй изумруд» — та же опечатка, что в IOC 15.2 (исправлена в ru); не включать в ru_ebird"
+Terathopius ecaudatus,ru_ebird,-,"eBird ru «Cкоморох» — латинская C, та же опечатка, что в IOC 15.2 (исправлена в ru); не включать в ru_ebird"
+Rhytipterna holerythra,ru_ebird,-,"eBird ru «Рыжия тиранн-плакса» — та же опечатка, что в IOC 15.2 (исправлена в ru); не включать в ru_ebird"
+Attila spadiceus,ru_ebird,-,"eBird ru «Желтопоясный атилла» — та же опечатка, что в ЗММУ/IOC 15.2 (исправлена в ru); не включать в ru_ebird"
+Locustella portenta,ru_ebird,-,"eBird ru «Талиабусская пестрогудка» — та же опечатка, что в IOC 15.2 (исправлена в ru); не включать в ru_ebird"
+Fulvetta striaticollis,ru_ebird,-,"eBird ru «Пеcтрогорлая фульветта» — латинская c, та же опечатка, что в IOC 15.2 (исправлена в ru); не включать в ru_ebird"
+Argya squamiceps,ru_ebird,-,eBird ru «Ававийская дроздовка» — опечатка eBird; в IOC «Аравийская дроздовка»; не включать в ru_ebird
+Certhia hodgsoni,ru_ebird,-,eBird ru «Кашмирская пищуху» — опечатка eBird (падеж); в IOC «Кашмирская пищуха»; не включать в ru_ebird
+Leptocoma sperata,ru_ebird,-,eBird ru «Пурпурногорлая нектраница» — опечатка eBird; в IOC «нектарница»; не включать в ru_ebird
+Nectarinia bocagii,ru_ebird,-,eBird ru «Сверкающая нектраница» — опечатка eBird; в IOC «нектарница»; не включать в ru_ebird
+Cinnyris manoensis,ru_ebird,-,eBird ru «Миомбская нектраница» — опечатка eBird; в IOC «нектарница»; не включать в ru_ebird
+Cinnyris reichenowi,ru_ebird,-,eBird ru «Желтоплечая нектраница» — опечатка eBird; в IOC «нектарница»; не включать в ru_ebird
+Cinnyris afer,ru_ebird,-,eBird ru «Серобрюхая нектраница» — опечатка eBird; в IOC «нектарница»; не включать в ru_ebird
+Cinnyris osea,ru_ebird,-,eBird ru «Палестинская некатарница» — опечатка eBird; в IOC «нектарница»; не включать в ru_ebird
+Atlapetes personatus,ru_ebird,-,eBird ru «Капюшоновая ая атлапета» — опечатка eBird (повтор «ая»); в IOC «Капюшоновая атлапета»; не включать в ru_ebird
+Spindalis dominicensis,ru_ebird,-,eBird ru «Каитянская зена» — опечатка eBird; в IOC «Гаитянская зена»; не включать в ru_ebird
+Anthus rufulus,ru_ebird,-,eBird ru «Рисовой конёк» — опечатка eBird (окончание); в IOC «Рисовый конёк»; не включать в ru_ebird
+Mimus polyglottos,ru,Многоголосый пересмешник,"""Многоголосый пересмешинк"" — опечатка IOC 15.2, найдено агентом при сверке с eBird"
+Eumyias stresemanni,ru,-,"Запасное название eBird «Флоресская джунглевая мухоловка» неверно: занято E. oscillans (Flores Jungle Flycatcher), а этот вид — Sumba Jungle Flycatcher (Сумба ≠ Флорес). Снято: вид без русского названия"
