@@ -1051,6 +1051,14 @@ def c2_stats(species: list[dict], taxa: dict) -> dict:
     with open(REPO / "data/overrides.csv", encoding="utf-8") as fh:
         ov = list(csv.DictReader(fh))
     sci_species = {r["sci"] for r in species}
+    # manual corrections of species names (a «-» removes a wrong name: not a correction)
+    n_manual = sum(1 for o in ov if o["sci"] in sci_species and o["field"] == "ru" and o["value"].strip() != "-")
+    n_alt = sum(len(r.get("ru_alt") or []) for r in species)
+    n_eb = sum(1 for r in species if r.get("ru_ebird"))
+    n_missing = sum(1 for r in species if not r.get("ru"))
+    n_fallback = sum(1 for r in species if r.get("ru_status") == "ok_fallback")
+    VID_GEN = ("вида", "видов", "видов")
+    NAZV = ("название", "названия", "названий")
     taxa_no_ru = [t for t in taxa["orders"] + taxa["families"] if not t.get("ru")]
     return {
         "total": fmt_int(len(species)),
@@ -1059,8 +1067,8 @@ def c2_stats(species: list[dict], taxa: dict) -> dict:
         "ioc": fmt_int(src.get("ioc", 0)),
         "ebird": src.get("ebird", 0),
         "wikidata": src.get("wikidata", 0),
-        "manual": sum(1 for o in ov if o["sci"] in sci_species and o["field"] == "ru"),
-        "manual_word": NUM_WORDS.get(sum(1 for o in ov if o["sci"] in sci_species and o["field"] == "ru"), ""),
+        "manual": n_manual,
+        "manual_word": NUM_WORDS.get(n_manual, str(n_manual)),
         "taxa_manual": sum(1 for o in ov if o["sci"] not in sci_species and o["field"] == "ru"),
         "fallback": sum(1 for r in species if r.get("ru_status") == "ok_fallback"),
         "missing": sum(1 for r in species if not r.get("ru")),
@@ -1075,6 +1083,22 @@ def c2_stats(species: list[dict], taxa: dict) -> dict:
         "families_no_ru": sum(1 for t in taxa["families"] if not t.get("ru")),
         "taxa_no_ru": len(taxa_no_ru),
         "genera": fmt_int(len({r["sci"].split()[0] for r in species})),
+        # ready-made phrases with agreement (the note «О подготовке этого макета»)
+        "families_txt": count_txt(len(taxa["families"]), SEM),
+        "orders_txt": count_txt(len(taxa["orders"]), OTR),
+        "extinct_txt": count_txt(sum(1 for r in species if r.get("extinct") == "extinct"),
+                                 ("вымерший", "вымерших", "вымерших")),
+        "possibly_txt": count_txt(sum(1 for r in species if r.get("extinct") == "possibly_extinct"),
+                                  ("возможно вымерший", "возможно вымерших", "возможно вымерших")),
+        "ew_txt": count_txt(sum(1 for r in species if r.get("extinct") == "extinct_in_wild"),
+                            ("сохранившийся", "сохранившихся", "сохранившихся")),
+        "ioc_gen_txt": count_txt(src.get("ioc", 0), VID_GEN),
+        "fallback_txt": count_txt(n_fallback, NAZV),
+        "missing_gen_txt": count_txt(n_missing, VID_GEN),
+        "dups_txt": count_txt(len(dups), ("случай", "случая", "случаев")),
+        "manual_txt": count_txt(n_manual, NAZV),
+        "alt_txt": f"{fmt_int(n_alt)} " + plural(n_alt, "такое название", "таких названия", "таких названий"),
+        "ebird_gen_txt": count_txt(n_eb, VID_GEN),
     }
 
 
