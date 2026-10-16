@@ -346,15 +346,18 @@ def runs_merge(runs: list) -> list:
     return out
 
 
-def nums_runs(nums: list[tuple[int, bool, str]]) -> list:
-    """Numbers of one index line: main entries bold, alternative names light;
+def nums_runs(nums: list[tuple[int, str, str]]) -> list:
+    """Numbers of one index line: main entries ("m") bold, alternative names
+    ("a") light, eBird names ("e") light with a small upright «eBird» mark;
     homonyms (several species) get the Latin name in small italics."""
     runs: list = []
     homonyms = len(nums) > 1
-    for i, (n, main, sci) in enumerate(nums):
+    for i, (n, kind, sci) in enumerate(nums):
         if i:
             runs.append([", ", ""])
-        runs.append([str(n), "b" if main else ""])
+        runs.append([str(n), "b" if kind == "m" else ""])
+        if kind == "e":
+            runs.append([NBSP + "eBird", "s"])
         if homonyms:
             runs.append([" (", "s"])
             runs.append([sci_abbr(sci), "si"])
@@ -385,6 +388,8 @@ def c2_species(sel: list[dict]) -> list[dict]:
             "ru": r.get("ru_book"),
             "st": r.get("ru_status") == "ok_fallback",
             "alt": alts,
+            # eBird name differing from ru: an extra index entry only (not in the list)
+            "eb": ru_book_fn(r["ru_ebird"], r.get("en"))[0] if r.get("ru_ebird") else None,
             "x": EXT_CODE.get(r.get("extinct")) if r.get("extinct") else None,
         })
     return out
@@ -397,16 +402,20 @@ def c2_idx_ru(sel, sp, orders, families) -> list[dict]:
     for r, s in zip(sel, sp):
         if not r.get("ru"):
             continue
-        names = [(r["ru_book"], r["ru_head"], True)]
+        names = [(r["ru_book"], r["ru_head"], "m")]
         for alt, book in zip(r.get("ru_alt") or [], s["alt"]):
-            names.append((book, ru_head_fn(alt)[0], False))
-        for book, head, main in names:
+            names.append((book, ru_head_fn(alt)[0], "a"))
+        # eBird name: skipped when it repeats a name of the same species already
+        # in the index (e.g. Anser fabalis: «лесной гуменник» is also in ru_alt)
+        if s.get("eb") and s["eb"] not in {b for b, _, _ in names}:
+            names.append((s["eb"], ru_head_fn(r["ru_ebird"])[0], "e"))
+        for book, head, kind in names:
             nest = nests.setdefault(head, {"nums": [], "defs": {}})
             d = ru_definition(book, head)
             if d == head or not d:
-                nest["nums"].append((s["n"], main, r["sci"]))
+                nest["nums"].append((s["n"], kind, r["sci"]))
             else:
-                nest["defs"].setdefault((d, not main), []).append((s["n"], main, r["sci"]))
+                nest["defs"].setdefault((d, kind != "m"), []).append((s["n"], kind, r["sci"]))
     units = []
     for head, nest in nests.items():
         defs = sorted(nest["defs"].items(), key=lambda kv: (ru_sort_key(kv[0][0]), kv[0][1]))
@@ -789,7 +798,8 @@ def prepare_c2(full: bool) -> dict:
            "sci": c2_idx_sci(sel, sp, orders, families),
            "encol": c2_idx_en_col(sel, sp, families)}
     # soft hyphens only in Russian words too long for a line
-    shy_list, shy_idx = soft_hyphen_maps([s["ru"] for s in sp if s["ru"]] + [a for s in sp for a in s["alt"]])
+    shy_list, shy_idx = soft_hyphen_maps([s["ru"] for s in sp if s["ru"]] + [a for s in sp for a in s["alt"]]
+                                         + [s["eb"] for s in sp if s.get("eb")])
     for s in sp:
         s["ru"] = apply_shy(s["ru"], shy_list)
         s["alt"] = [apply_shy(a, shy_list) for a in s["alt"]]
@@ -1010,12 +1020,15 @@ def c2_tables(species, taxa, sp, sel, full) -> dict:
                for r in pool if not r.get("ru")]
     syn = [{"n": num.get(r["sci"]), "ru": r["ru"], "alt": ", ".join(r["ru_alt"])}
            for r in pool if r.get("ru_alt")]
+    ebird = sorted(({"n": num.get(r["sci"]), "sci": r["sci"], "ru": r["ru"], "eb": r["ru_ebird"]}
+                    for r in pool if r.get("ru_ebird")), key=lambda x: x["n"])
     return {
         "fixes": fixes, "taxa_fixes": taxa_fixes, "taxa_formed": taxa_formed, "dups": dups,
-        "fallback": fallback, "missing": missing, "syn": syn,
+        "fallback": fallback, "missing": missing, "syn": syn, "ebird": ebird,
         "full_fallback": sum(1 for r in species if r.get("ru_status") == "ok_fallback"),
         "full_missing": sum(1 for r in species if not r.get("ru")),
         "full_syn": sum(1 for r in species if r.get("ru_alt")),
+        "full_ebird": sum(1 for r in species if r.get("ru_ebird")),
     }
 
 
