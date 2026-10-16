@@ -96,16 +96,18 @@
   if bold { text(weight: "bold", binomial(s)) } else { binomial(s) }
   if s.a.len() > 0 { [ ]; author(s) }
 }
-#let ru-text(body) = text(lang: "ru", hyphenate: true, costs: (hyphenation: 200%), body)
-// Russian line: optimized breaking (hyphenation costs apply); Latin and English:
-// simple first-fit, so a binomial breaks only when it cannot fit on one line.
-#let line-par(body, opt: false) = par(hanging-indent: HANG, linebreaks: if opt { "optimized" } else { "simple" }, body)
+// No automatic hyphenation: words too long for a line carry soft hyphens
+// (build_print.py, pyphen); a line breaks between words otherwise.
+#let ru-text(body) = text(lang: "ru", hyphenate: false, body)
+// Simple first-fit breaking: a binomial or a name breaks only when it cannot fit.
+#let line-par(body) = par(hanging-indent: HANG, linebreaks: "simple", body)
 
-#let entry(s) = block(above: 2pt, below: 2pt, width: 100%, {
+// The entry is unbreakable as a whole: it never splits between columns.
+#let entry(s) = block(above: 2pt, below: 2pt, width: 100%, breakable: false, {
   let sign = ext-sign(s.x)
   block(breakable: false, spacing: 0pt, width: 100%, {
     if s.ru != none {
-      line-par(opt: true)[#spc.step()#nbox(num(s.n))#ru-text[#strong(s.ru)#if s.st { strong("*") }#if s.alt.len() > 0 [ (#s.alt.join(", "))]]]
+      line-par[#spc.step()#nbox(num(s.n))#ru-text[#strong(s.ru)#if s.st { strong("*") }#if s.alt.len() > 0 [ (#s.alt.join(", "))]]]
       line-par[#nbox(if sign != none { sign })#lat-auth(s)]
     } else {
       // no Russian name: the Latin name moves up into the name line
@@ -251,7 +253,7 @@
       let rows = ()
       rows += row([Введение], [], page-of("intro"))
       rows += row([Как пользоваться книгой. Условные обозначения], [], page-of("howto"))
-      rows += row([Систематический список], [№ 1–#SP.len()], page-of("list-start"), bold: true)
+      rows += row([Систематический список], [№ #rng(1, meta.count_fmt)], page-of("list-start"), bold: true)
       for (k, o) in data.orders.enumerate() {
         rows += row([#ord-ru(o)#if o.ru != none [ · #o.sci]], rng(o.a, o.b), page-of("order-" + str(k + 1)), ind: 1.2em)
       }
@@ -273,7 +275,7 @@
     #v(3mm)
     #set par(first-line-indent: (amount: 1.2em, all: false))
 
-    Справочник содержит систематический список птиц мировой фауны — #st.total видов, включая
+    Справочник содержит систематический список птиц мировой фауны — #st.total_txt, включая
     виды, вымершие после 1500 г., — с латинскими (научными), русскими и английскими названиями,
     и три алфавитных указателя к нему. Его назначение — дать в одном томе согласованные названия
     на трёх языках: найти русское название по латинскому или английскому и обратно, увидеть место
@@ -282,7 +284,7 @@
     *Таксономическая основа.* Состав видов, их последовательность, деление на отряды
     и семейства, латинские названия с авторами и годами описания и английские названия приняты
     по AviList — единому мировому списку птиц (AviList: The Global Avian Checklist, версия 2025b).
-    В нём #st.total видов из #st.genera родов, #st.families семейств и #st.orders отрядов.
+    В нём #st.total_txt из #st.genera родов, #st.families семейств и #st.orders отрядов.
     Подвиды не приводятся. Номер вида сквозной и не несёт систематического смысла: он нужен для
     ссылок из указателей.
 
@@ -293,7 +295,7 @@
     отсутствует (чаще всего это виды, выделенные в последние годы), название взято из русской
     версии таксономии eBird/Clements (#st.ebird) или из Wikidata (#st.wikidata); такие названия,
     всего #st.fallback, помечены звёздочкой «\*» и должны считаться предварительными до утверждения
-    авторами номенклатуры. #st.manual названий исправлены вручную (опечатки источника и одно
+    авторами номенклатуры. #st.manual_word названий исправлено вручную (опечатки источника и одно
     совпадение названий у двух видов). У #st.missing видов русского названия нет; в списке на его
     месте стоит латинское название полужирным курсивом. Русские названия отрядов и семейств
     взяты из таблиц ЗММУ и Wikidata.
@@ -466,8 +468,7 @@
 #index-section("sci", [Алфавитный указатель латинских названий], [Index of Scientific Names],
   [Указатель латинских названий],
   [Виды — в инверсии: _эпитет, Род_. Роды — полужирным курсивом с номерами всех видов рода;
-   семейства и отряды — прописными с диапазоном номеров. Прежние комбинации (если род изменён)
-   — курсивом со стрелкой на принятое название.])
+   семейства и отряды — прописными с диапазоном номеров.])
 
 // ================================================================ BACK MATTER
 #page(header: plain-head[Источники])[
@@ -576,6 +577,13 @@
     #v(1mm)
     #ttable((32mm, 30mm, 32mm, 1fr), ([Таксон], [Было], [Стало], [Причина]),
       T.taxa_fixes.map(r => (r.sci, r.before, r.after, r.why)).flatten())
+    #if T.taxa_formed.len() > 0 {
+      v(2mm)
+      emph[Названия отрядов и семейств, образованные составителем (обоснование — из файла правок, по-английски):]
+      v(1mm)
+      ttable((32mm, 34mm, 1fr), ([Таксон], [Название], [Обоснование]),
+        T.taxa_formed.map(r => (r.sci, r.after, text(lang: "en", r.why))).flatten())
+    }
   ]
 
   #tsection([б) Одно русское название у нескольких видов], note: [Всего: #T.dups.len(). Ждут решения авторов номенклатуры.])[

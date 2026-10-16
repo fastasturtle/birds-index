@@ -268,34 +268,36 @@ def lat_key(s: str):
     return latin_fold(s).lower()
 
 
+def apos(t: str | None) -> str | None:
+    """Typographic apostrophe: d'Orbigny -> d’Orbigny, Grauer's -> Grauer’s."""
+    return t.replace("'", "\u2019") if t else t
+
+
+AUTH_LONG = 22   # characters: a chunk longer than this may break between its words
+
+
 def auth_chunks(auth: str | None) -> list[str]:
-    """Author + year as unbreakable chunks: a line may break only before «&»;
-    long lists of names (> 22 characters) may also break after a comma between
-    names; a chunk that is still longer may break before the year. Spaces
-    inside a chunk are no-break."""
+    """Author + year as chunks that the template sets as unbreakable boxes,
+    separated by breakable spaces. A line may break only before «&» and after
+    the comma between co-authors; the last surname, its comma and the year are
+    always glued with no-break spaces («Gill, 2003)»). Only a single surname
+    too long for a line (> AUTH_LONG characters: «Geoffroy Saint-Hilaire, 1832»,
+    «(Du Bus de Gisignies, 1847)») may also break between its own words."""
     if not auth:
         return []
-    parts = auth.split(" & ")
+    auth = apos(auth)
     chunks: list[str] = []
-    for i, part in enumerate(parts):
-        part = ("& " if i else "") + part
-        if len(part) > 22 and ", " in part:
-            names = part.split(", ")
-            # keep the year with the last name: «Gill, 2003)»
-            if names[-1].rstrip(")").isdigit() and len(names) > 1:
-                names[-2:] = [names[-2] + ", " + names[-1]]
-            chunks += [n + ("," if j < len(names) - 1 else "") for j, n in enumerate(names)]
-        else:
-            chunks.append(part)
-    # a chunk still too long for a line: let the year go to the next line
-    out: list[str] = []
-    for c in chunks:
-        name, sep, year = c.rpartition(", ")
-        if len(c) > 22 and sep and year.rstrip(")").isdigit():
-            out += [name + ",", year]
-        else:
-            out.append(c)
-    return [c.replace(" ", NBSP) for c in out]
+    for i, part in enumerate(auth.split(" & ")):
+        names = part.split(", ")
+        if len(names) > 1 and names[-1].rstrip(")").isdigit():
+            names[-2:] = [names[-2] + "," + NBSP + names[-1]]
+        for j, nm in enumerate(names):
+            nm = ("& " if i and j == 0 else "") + nm + ("," if j < len(names) - 1 else "")
+            if len(nm) > AUTH_LONG:
+                chunks += nm.split(" ")          # NBSP before the year survives
+            else:
+                chunks.append(nm)
+    return [c.replace(" ", NBSP) for c in chunks]
 
 
 RDASH = "\u2060–\u2060"   # en dash of a number range, glued to both numbers
@@ -462,9 +464,7 @@ def c2_idx_sci(sel, sp, orders, families) -> list[dict]:
     for r, s in zip(sel, sp):
         genera.setdefault(s["g"], []).append(s["n"])
         units.append({"key": (lat_key(s["e"]), 1, lat_key(s["g"])), "hw": s["e"], "nest": False,
-                      "lines": [[[s["e"], "i"], [", ", ""], [s["g"], "i"],
-                                 # a very long genus may let its number go to the next line
-                                 [(" " if len(s["g"]) >= 15 else NBSP) + str(s["n"]), ""]]]})
+                      "lines": [[[s["e"], "i"], ["," + NBSP, ""], [s["g"], "i"], [NBSP + str(s["n"]), ""]]]})
         old = r.get("ioc_sci")
         if old and old != r["sci"] and " " in old:
             og, oe = old.split(" ", 1)
@@ -497,43 +497,54 @@ def c2_measure(items: list[dict], tokens: list[list] | None = None) -> tuple[lis
                                  font_paths=[str(FONTS)], sys_inputs={"data": "/out/" + path.name}))[0]
     path.unlink()
     heights = [max(1, round(h / IDX_STEP)) for h in res["h"]]
+    c2_measure.natural = res["nw"]        # natural (unbroken) widths of the items, pt
     return heights, res["w"]
 
 
-def en_run_lines(unit: dict, width: dict) -> list[list]:
-    """Break an English nest into lines (greedy, like H&M): a name moves to the
-    next line whole if it fits there, otherwise it breaks between words."""
+def en_run_lines(unit: dict, width: dict) -> list[tuple[list, int]]:
+    """Break an English nest into lines (greedy, like H&M). A line breaks only
+    between names (after the comma); a name too long for a continuation line
+    starts a new line and breaks between its words. Returns (runs, flag): flag 0
+    for the first line, 1 for a line that starts a new name (indent 2 em),
+    2 for the rest of a broken name (indent 3 em)."""
     tokens = en_tokens(unit)
     sp_w = width["\x00space"]
     full = IDX_COL_W - 1.5                 # safety margin, pt
     cont = full - 2 * IDX_SIZE             # hanging indent 2 em
-    lines: list[list] = []
+    cont2 = full - 3 * IDX_SIZE            # inside a broken name: 3 em
+    lines: list[tuple[list, int]] = []
     cur: list = []
     cur_w = 0.0
+    flag = 0
 
-    def avail():
-        return full if not lines else cont
+    def join(item):                        # words of one name, no-break spaces
+        return [r for t in item for r in t + [[NBSP, ""]]][:-1]
+
+    def lim():
+        return full if not lines else (cont2 if flag == 2 else cont)
 
     for item in tokens:                    # item = list of word tokens
         ws = [width[json.dumps(t, ensure_ascii=False)] for t in item]
         item_w = sum(ws) + sp_w * (len(ws) - 1)
-        if cur and cur_w + sp_w + item_w <= avail():
-            cur += [[" ", ""]] + [r for t in item for r in t + [[" ", ""]]][:-1]
+        if cur and cur_w + sp_w + item_w <= lim():
+            cur += [[" ", ""]] + join(item)
             cur_w += sp_w + item_w
             continue
-        if cur and item_w <= cont:
-            lines.append(cur)
-            cur, cur_w = [r for t in item for r in t + [[" ", ""]]][:-1], item_w
+        if cur:                            # the name goes to a new line
+            lines.append((cur, flag))
+            cur, cur_w, flag = [], 0.0, 1
+        if item_w <= lim():
+            cur, cur_w = join(item), item_w
             continue
-        for t, w in zip(item, ws):         # break inside the name
-            if cur and cur_w + sp_w + w > avail():
-                lines.append(cur)
-                cur, cur_w = [], 0.0
-            cur = cur + ([[" ", ""]] if cur else []) + t
+        for t, w in zip(item, ws):         # a name longer than a line
+            if cur and cur_w + sp_w + w > lim():
+                lines.append((cur, flag))
+                cur, cur_w, flag = [], 0.0, 2
+            cur = cur + ([[NBSP, ""]] if cur else []) + t
             cur_w += (sp_w if cur_w else 0) + w
     if cur:
-        lines.append(cur)
-    return [runs_merge(l) for l in lines]
+        lines.append((cur, flag))
+    return [(runs_merge(l), f) for l, f in lines]
 
 
 def en_tokens(unit: dict) -> list[list]:
@@ -586,11 +597,12 @@ def c2_paginate(units: list[dict], cont) -> list[dict]:
                     items[0]["h"] = LETTER_TOP_LINES
                 elif u.get("cont"):
                     runs, ch = cont(u["cont"])
-                    items = [{"r": runs, "h": ch, **({"ru": True} if items[0].get("ru") else {})}] + items
+                    items = [{"r": runs, "h": ch, "cont": 1,
+                              **({"ru": True} if items[0].get("ru") else {})}] + items
                 h = sum(it["h"] for it in items)
             if h > cap():
                 raise RuntimeError(f"index unit taller than a column: {u}")
-            col += [dict(it, _u=offset + i) for it in items]
+            col += [dict(it, _u=offset + i, nest=u["hw"]) for it in items]
             used += h
         cols.append(col)
         return cols
@@ -626,10 +638,16 @@ def c2_units(raw: list[dict], heights: dict, ru: bool = False) -> list[dict]:
     """Turn index entries into pagination units with letter separators."""
     units, letter = [], None
     for u in raw:
-        lines = [{"r": l, "h": heights[id(l)], **({"c": 1} if (u.get("kind") == "run" and j) else {}),
+        flags = u.get("flags") or [0] * len(u["lines"])
+        lines = [{"r": l, "h": heights[id(l)], **({"c": flags[j]} if flags[j] else {}),
                   **({"ru": True} if ru else {})}
                  for j, l in enumerate(u["lines"])]
-        groups = [lines[:2]] + [[l] for l in lines[2:]] if u.get("nest") and len(lines) > 1 else [lines]
+        # a nest may break between columns, but never so that one line stays
+        # behind or goes ahead alone: its first two and last two lines stay together
+        if u.get("nest") and len(lines) > 3:
+            groups = [lines[:2]] + [[l] for l in lines[2:-2]] + [lines[-2:]]
+        else:
+            groups = [lines]
         for j, g in enumerate(groups):
             unit = {"items": g, "hw": u["hw"]}
             if j:
@@ -639,6 +657,43 @@ def c2_units(raw: list[dict], heights: dict, ru: bool = False) -> list[dict]:
                 letter = u["letter"]
                 unit["items"] = [{"L": letter, "h": LETTER_LINES}] + unit["items"]
     return units
+
+
+SHY = "\u00ad"
+RU_WORD = re.compile(r"[А-Яа-яЁё-]+")
+LIST_WORD_MAX = (42 - 7.8) * MM - 8.5    # pt: continuation line of a list entry, bold 8.5 pt
+IDX_WORD_MAX = IDX_COL_W - 2 * IDX_SIZE  # pt: continuation line of an index entry, 7.5 pt
+
+
+def soft_hyphen_maps(names: list[str]) -> tuple[dict, dict]:
+    """Russian words too wide for a line get soft hyphens (pyphen, at least 3
+    letters on each side); all other words are never broken. Hyphenated words
+    («колибри-отшельник») break only at their own hyphen. Returns word maps for
+    the list (bold 8.5 pt) and for the Russian index (7.5 pt)."""
+    words = sorted({w for n in names for w in RU_WORD.findall(n) if "-" not in w and len(w) >= 12})
+    if not words:
+        return {}, {}
+    _, ws = c2_measure([], [[[w, "b"]] for w in words])   # bold, 7.5 pt
+    try:
+        import pyphen
+        dic = pyphen.Pyphen(lang="ru_RU", left=3, right=3)
+    except ImportError:
+        print("  C2: pyphen не установлен (uv run --with pyphen …): сверхдлинные слова без переносов")
+        return {}, {}
+    lst, idx = {}, {}
+    for w, wd in zip(words, ws):
+        hy = dic.inserted(w, hyphen=SHY)
+        if wd * 8.5 / 7.5 > LIST_WORD_MAX:
+            lst[w] = hy
+        if wd > IDX_WORD_MAX:
+            idx[w] = hy
+    return lst, idx
+
+
+def apply_shy(text: str | None, m: dict) -> str | None:
+    if not text or not m:
+        return text
+    return RU_WORD.sub(lambda g: m.get(g.group(), g.group()), text)
 
 
 def prepare_c2(full: bool) -> dict:
@@ -657,7 +712,7 @@ def prepare_c2(full: bool) -> dict:
             orders.append({"sci": s["o"], "ru": tx_o.get(s["o"], {}).get("ru"), "a": s["n"], "b": s["n"]})
         orders[-1]["b"] = s["n"]
         f = families.setdefault(s["f"], {"sci": s["f"], "ru": tx_f.get(s["f"], {}).get("ru"),
-                                         "en": tx_f.get(s["f"], {}).get("en") or r.get("family_en"),
+                                         "en": apos(tx_f.get(s["f"], {}).get("en") or r.get("family_en")),
                                          "a": s["n"], "b": s["n"]})
         f["b"] = s["n"]
     for t in orders + list(families.values()):
@@ -668,6 +723,15 @@ def prepare_c2(full: bool) -> dict:
     raw = {"ru": c2_idx_ru(sel, sp, orders, families),
            "en": c2_idx_en(sel, sp, families),
            "sci": c2_idx_sci(sel, sp, orders, families)}
+    # soft hyphens only in Russian words too long for a line
+    shy_list, shy_idx = soft_hyphen_maps([s["ru"] for s in sp if s["ru"]] + [a for s in sp for a in s["alt"]])
+    for s in sp:
+        s["ru"] = apply_shy(s["ru"], shy_list)
+        s["alt"] = [apply_shy(a, shy_list) for a in s["alt"]]
+    for u in raw["ru"]:
+        for l in u["lines"]:
+            for r in l:
+                r[0] = apply_shy(r[0], shy_idx)
     measure_lines, measure_ru = [], []
     for key, units in raw.items():
         for u in units:
@@ -687,24 +751,50 @@ def prepare_c2(full: bool) -> dict:
     tok_list.append([["xx", ""]])
     hs, ws = c2_measure([{"r": l, **({"ru": True} if r else {})} for l, r in zip(measure_lines, measure_ru)], tok_list)
     heights = {id(l): h for l, h in zip(measure_lines, hs)}
+    # Latin index: «epithet, Genus 37» is one unbreakable entry; only an entry
+    # wider than the column may break after its comma (remeasured below)
+    # Russian index: the number may leave its word only when the line is
+    # wider than the column («— южноамериканский | 1499»)
+    sci_ids = {id(l) for u in raw["sci"] for l in u["lines"]}
+    ru_ids = {id(l) for u in raw["ru"] for l in u["lines"]}
+    relaxed = []
+    for l, nw in zip(measure_lines, c2_measure.natural):
+        if nw <= IDX_COL_W - 2:
+            continue
+        if id(l) in sci_ids:
+            for r in l:
+                r[0] = r[0].replace("," + NBSP, ", ")
+                if r[0].startswith(NBSP) and r[0][1:].isdigit() and len(l[2][0]) >= 15:
+                    r[0] = " " + r[0][1:]        # «Catamblyrhynchus | 10990»
+            relaxed.append(l)
+        elif id(l) in ru_ids:
+            for r in l:
+                if r[0] == NBSP:
+                    r[0] = " "
+            relaxed.append(l)
     width = {json.dumps(t, ensure_ascii=False): w for t, w in zip(tok_list, ws)}
     width["\x00space"] = width[json.dumps([["x x", ""]])] - width[json.dumps([["xx", ""]])]
     for u in raw["en"]:
         if u["kind"] == "run":
-            u["lines"] = en_run_lines(u, width)
+            res = en_run_lines(u, width)
+            u["lines"], u["flags"] = [l for l, _ in res], [f for _, f in res]
             u["nest"] = len(u["lines"]) > 1
     # second pass: the English lines as broken here (a single long word may
     # still wrap at its hyphen) and the «(продолж.)» lines of every nest
-    en_lines = [(l, j) for u in raw["en"] if u["kind"] == "run" for j, l in enumerate(u["lines"])]
+    en_lines = [(l, f) for u in raw["en"] if u["kind"] == "run" for l, f in zip(u["lines"], u["flags"])]
     conts = {k: {u["hw"]: cont_runs(u["hw"], word) for u in raw[k] if u.get("nest")}
              for k, word in (("ru", CONT_RU), ("en", CONT_EN))}
-    batch = [{"r": l, **({"c": 1} if j else {})} for l, j in en_lines]
+    batch = [{"r": l, **({"c": f} if f else {})} for l, f in en_lines]
+    batch += [{"r": l, **({"ru": True} if id(l) in ru_ids else {})} for l in relaxed]
     batch += [{"r": r, "ru": k == "ru"} for k in conts for r in conts[k].values()]
     hs2, _ = c2_measure(batch)
     for (l, _), h in zip(en_lines, hs2):
         heights[id(l)] = h
+    for l, h in zip(relaxed, hs2[len(en_lines):]):
+        heights[id(l)] = h
     cont_h = {}
-    for (k, hw), h in zip([(k, hw) for k in conts for hw in conts[k]], hs2[len(en_lines):]):
+    off = len(en_lines) + len(relaxed)
+    for (k, hw), h in zip([(k, hw) for k in conts for hw in conts[k]], hs2[off:]):
         cont_h[(k, hw)] = h
     idx = {
         "ru": c2_paginate(c2_units(raw["ru"], heights, ru=True), lambda hw: (cont_runs(hw, CONT_RU), cont_h[("ru", hw)])),
@@ -788,39 +878,52 @@ def c2_tables(species, taxa, sp, sel, full) -> dict:
     with open(REPO / "data/overrides.csv", encoding="utf-8") as fh:
         ov = list(csv.DictReader(fh))
     lat_c = re.compile(r"[A-Za-z]")
-    fixes, taxa_fixes = [], []
+    fixes, taxa_fixes, taxa_formed = [], [], []
     for o in ov:
         if o["field"] != "ru":
             continue
         before = override_before(o["value"], o["note"])
         row = {"n": num.get(o["sci"]), "sci": o["sci"], "before": before, "after": o["value"],
                "latin": bool(lat_c.search(before)), "why": override_reason(o["sci"], o["note"])}
-        (fixes if o["sci"] in by_sci else taxa_fixes).append(row)
+        if o["sci"] in by_sci:
+            fixes.append(row)
+        elif "Formed by compiler" in o["note"] or "ru.wikipedia" in o["note"]:
+            # names of orders / families formed or chosen by the compiler: the
+            # note (in English, from overrides.csv) is shown as is, without URLs
+            note = re.sub(r"\s*\(?https?://\S+?\)?(?=[\s;,)]|$)", "", o["note"]).replace("(: ", "(")
+            note = re.sub(r"ru\.wikipedia:\s*(?=[,;)])", "ru.wikipedia", note)
+            taxa_formed.append({"sci": o["sci"], "after": o["value"], "why": note.strip()})
+        else:
+            taxa_fixes.append(row)
     groups = defaultdict(list)
     for r in species:
         if r.get("ru"):
             groups[r["ru"]].append(r)
     src_ru = {"ioc": "IOC", "ebird": "eBird", "wikidata": "Wikidata", "manual": "правка"}
-    dups = [{"ru": nm, "sp": [{"n": num.get(r["sci"]), "sci": r["sci"], "en": r.get("en"),
+    dups = [{"ru": nm, "sp": [{"n": num.get(r["sci"]), "sci": r["sci"], "en": apos(r.get("en")),
                                "src": src_ru.get(r.get("ru_source"), r.get("ru_source"))} for r in rs]}
             for nm, rs in groups.items() if len(rs) > 1]
     pool = sel
     fam_ru = {f["sci"]: f.get("ru") for f in taxa["families"]}
-    fallback = [{"n": num.get(r["sci"]), "sci": r["sci"], "ru": r["ru"], "en": r.get("en"),
+    fallback = [{"n": num.get(r["sci"]), "sci": r["sci"], "ru": r["ru"], "en": apos(r.get("en")),
                  "src": src_ru.get(r["ru_source"], r["ru_source"])}
                 for r in pool if r.get("ru_status") == "ok_fallback"]
-    missing = [{"n": num.get(r["sci"]), "sci": r["sci"], "en": r.get("en"),
+    missing = [{"n": num.get(r["sci"]), "sci": r["sci"], "en": apos(r.get("en")),
                 "fam": r["family"], "fam_ru": fam_ru.get(r["family"])}
                for r in pool if not r.get("ru")]
     syn = [{"n": num.get(r["sci"]), "ru": r["ru"], "alt": ", ".join(r["ru_alt"])}
            for r in pool if r.get("ru_alt")]
     return {
-        "fixes": fixes, "taxa_fixes": taxa_fixes, "dups": dups,
+        "fixes": fixes, "taxa_fixes": taxa_fixes, "taxa_formed": taxa_formed, "dups": dups,
         "fallback": fallback, "missing": missing, "syn": syn,
         "full_fallback": sum(1 for r in species if r.get("ru_status") == "ok_fallback"),
         "full_missing": sum(1 for r in species if not r.get("ru")),
         "full_syn": sum(1 for r in species if r.get("ru_alt")),
     }
+
+
+NUM_WORDS = {1: "Одно", 2: "Два", 3: "Три", 4: "Четыре", 5: "Пять", 6: "Шесть", 7: "Семь",
+             8: "Восемь", 9: "Девять", 10: "Десять"}
 
 
 def c2_stats(species: list[dict], taxa: dict) -> dict:
@@ -841,11 +944,13 @@ def c2_stats(species: list[dict], taxa: dict) -> dict:
     taxa_no_ru = [t for t in taxa["orders"] + taxa["families"] if not t.get("ru")]
     return {
         "total": fmt_int(len(species)),
+        "total_txt": count_txt(len(species), VID),
         "ru": fmt_int(sum(src.values())),
         "ioc": fmt_int(src.get("ioc", 0)),
         "ebird": src.get("ebird", 0),
         "wikidata": src.get("wikidata", 0),
         "manual": sum(1 for o in ov if o["sci"] in sci_species and o["field"] == "ru"),
+        "manual_word": NUM_WORDS.get(sum(1 for o in ov if o["sci"] in sci_species and o["field"] == "ru"), ""),
         "taxa_manual": sum(1 for o in ov if o["sci"] not in sci_species and o["field"] == "ru"),
         "fallback": sum(1 for r in species if r.get("ru_status") == "ok_fallback"),
         "missing": sum(1 for r in species if not r.get("ru")),
@@ -892,10 +997,17 @@ def run_c2(full: bool, preview: bool) -> tuple[Path, int, dict, dict]:
             print("    " + p)
     else:
         print("  C2: проверка переполнения — нарушений нет")
+    import check_layout
+    counts, ex = check_layout.check(pdf, json.loads(json.dumps(layout)), data)
+    print("  C2: проверки вёрстки:")
+    for line in check_layout.report(counts, ex, show=5):
+        print("    " + line)
+    bad = sum(v for k, v in counts.items() if k != "soft")
+    problems = problems + [f"layout: {k} = {v}" for k, v in counts.items() if v and k != "soft"]
     if preview:
         for p in c2_previews(pdf, marks, full):
             print(f"     preview {p.relative_to(REPO)}")
-    return pdf, total, sp, {"problems": len(problems), "marks": marks}
+    return pdf, total, sp, {"problems": len(problems), "marks": marks, "checks": counts}
 
 
 def c2_spans(marks: dict, data: dict, total: int) -> dict:

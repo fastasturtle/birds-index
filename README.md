@@ -32,15 +32,16 @@ uv run scripts/build.py
 
 ```
 uv run --with typst python print/build_print.py                 # выборка: гусеобразные + курообразные, все варианты
-uv run --with typst python print/build_print.py --variants C2   # только текущий вариант C2
-uv run --with typst python print/build_print.py --variants C2 --full --preview
+uv run --with typst --with pyphen python print/build_print.py --variants C2   # только текущий вариант C2
+uv run --with typst --with pyphen python print/build_print.py --variants C2 --full --preview
 ```
 
 Флаги: `--full` — весь список (11 131 вид) вместо выборки; `--preview` — PNG-превью ключевых полос в `print/out/preview/` (нужен `pdftoppm` из poppler); `--variants` — любые из `A`, `B`, `C`, `C2` подряд (`ABC`, `C2`; по умолчанию все).
 
 - `variant_c2.typ` — текущий вариант «компактный справочник» (итерация 2): 170×240 мм, список в 3 колонки, указатели в 4; выход `print/out/birds_C2_compact.pdf` (выборка) и `birds_C2_compact_full.pdf` (`--full`). Шаблон только верстает: номера, диапазоны, склонение чисел и алфавитные указатели готовит `build_print.py`. Указатели верстаются в два прохода: строки измеряются Typst (`c2_measure.typ` с общим рендерером `c2_index.typ`), затем Python раскладывает их по колонкам и полосам — так получаются строки «гнездо (продолж.)», сбалансированная последняя полоса и колонтитулы «первое — последнее гнездо».
 - После колофона идут временные страницы, в издание не входящие: записка «О подготовке этого макета» (текст — `print/about_draft.typ`) и рабочие таблицы (ручные правки, совпадающие названия, запасные названия, виды без названия, синонимы).
-- `check_overflow.py` — проверка переполнения по `pdftotext -bbox`: слова за краем колонки или полосы. `build_print.py` вызывает её сам и завершается с ненулевым кодом при нарушениях; вручную: `python print/check_overflow.py <pdf> <layout.json>` (layout пишет `build_print.py` в `print/out/c2_*_layout.json`).
+- Переносы: в русских названиях автоматических переносов нет; мягкие переносы (pyphen, не меньше трёх букв с каждой стороны, не в дефисных словах) ставятся только в слова, которые не помещаются в строку. Без `--with pyphen` такие слова остаются без переносов (сборка предупредит).
+- Проверки после сборки C2 (код выхода 1 при нарушениях): `check_overflow.py` — слова за краем колонки или полосы (`pdftotext -bbox`); `check_layout.py` — автоматические переносы в русских строках, колонки списка, начинающиеся не со статьи или рубрики, год, оторванный от автора, продолжение гнезда указателя из одной строки, прямые апострофы. Вручную: `python print/check_overflow.py <pdf> <layout.json>`, `python print/check_layout.py <pdf> <layout.json> <c2_*.json>` (файлы пишет `build_print.py` в `print/out/`).
 - `variant_a.typ`, `variant_b.typ`, `variant_c.typ` и `common.typ` — первые три варианта (итерация 1), оставлены для сравнения.
 - Объём по разделам (выборка и факт `--full`) — `print/out/estimate.md`.
 - Шрифты — в `print/fonts/` с лицензиями: Gentium Book Plus и PT Serif (SIL OFL 1.1), Source Serif 4 (SIL OFL 1.1, `SourceSerif4-LICENSE.md`).

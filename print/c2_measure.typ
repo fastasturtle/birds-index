@@ -5,5 +5,6 @@
 #context {
   let hs = d.items.map(it => measure(block(width: i-col, idx-line(it))).height.pt())
   let ws = d.tokens.map(t => measure(i-text(t.map(run).join())).width.pt())
-  [#metadata((h: hs, w: ws)) <m>]
+  let nw = d.items.map(it => measure(i-text(it.r.map(run).join())).width.pt())
+  [#metadata((h: hs, w: ws, nw: nw)) <m>]
 }

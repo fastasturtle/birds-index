@@ -25,15 +25,15 @@
   body
 }
 
-// it.r: runs; it.c: continuation line of an English run-in nest (indent 2 em);
-// it.ru: Russian entry (hyphenation allowed, at a high cost).
+// it.r: runs; it.c: continuation line of an English run-in nest (1: 2 em,
+// 2: 3 em); it.ru: Russian entry (no automatic hyphenation: soft hyphens are
+// put by build_print.py only into words too long for a line).
 #let idx-line(it) = i-text({
   let body = it.r.map(run).join()
-  if it.at("ru", default: false) {
-    body = text(hyphenate: true, costs: (hyphenation: 300%), body)
-  }
-  if it.at("c", default: 0) == 1 {
-    block(spacing: 0pt, pad(left: 2em, par(body)))
+  let c = it.at("c", default: 0)
+  if c > 0 {
+    // 1: next name of a run-in English nest (2 em); 2: rest of a broken name (3 em)
+    block(spacing: 0pt, pad(left: (c + 1) * 1em, par(body)))
   } else {
     block(spacing: 0pt, par(hanging-indent: 2em, body))
   }
