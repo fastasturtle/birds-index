@@ -6,6 +6,8 @@
 - **IOC Multilingual 15.2**: `data/raw/IOC-Multiling-15.2.xlsx`
 - **eBird taxonomy (ru)**: `data/cache/ebird-taxonomy-ru.json`, 10366 species with Cyrillic names
 - **Wikidata P1843 (ru)**: `data/cache/wikidata-ru-p1843.json`, 10700 taxa
+- **IOC 15.2 vs other lists (former names)**: `data/raw/IOC_15.2_vs_other_lists.xlsx`, 5087 species with names
+- **eBird taxonomies 2015–2024 (former names)**: 9 of 9 versions
 - **ZMMU passerine list (family names)**: `data/raw/Birds_rus_names_passerine.xlsx`, 142 families
 - **Wikidata orders/families (ru)**: `data/cache/wikidata-taxa-ru.json`, 231 taxa
 
@@ -29,6 +31,8 @@
 | `ru_ebird` set (eBird name differs from `ru`) | 120 |
 | `ru_ebird` suppressed by override | 19 |
 | `auth` with leftover initials | 0 |
+| Species with `sci_prev` (former scientific names) | 5146 |
+| Species with `sci_book_prev` | 3160 |
 | Names with mixed Cyrillic/Latin words | 0 |
 | Russian names shared by several species | 42 |
 | `ru` split into `ru` + `ru_alt` | 41 |
@@ -1111,3 +1115,215 @@ Case-insensitive comparison of the raw names. `ru` always prefers IOC; the eBird
 | Spindalis dominicensis | Гаитянская зена | Каитянская зена |  | yes |
 | Sturnella neglecta | Жаворонковый луговой трупиал | Западный луговой трупиал | Западный луговой трупиал |  |
 | Setophaga coronata | Миртовая древесница | Миртовый певун | Миртовый певун |  |
+
+## Former scientific names (`sci_prev`): 5146 species
+
+Former combinations from `data/raw/IOC_15.2_vs_other_lists.xlsx` (IOC 15.2, IOC 15.1, Clements 2025, BirdLife v10, H&M 4.1, HBW, Peters, S&M 1993; rows joined on the AviList column) and historical eBird taxonomies (`ebirdYYYY`, joined on the species code), plus `field = sci_prev` overrides. AviList protonyms are not included. `sci_book_prev` is the first name of kind genus / genus_ending / epithet (the list is sorted by the most recent source, then by name). eBird versions are read from the public API without a key; there is no 2020 version.
+
+- eBird 2024: `data/cache/ebird-taxonomy-2024.json`, 11145 species, 11090 AviList species joined
+- eBird 2023: `data/cache/ebird-taxonomy-2023.json`, 11017 species, 10949 AviList species joined
+- eBird 2022: `data/cache/ebird-taxonomy-2022.json`, 10906 species, 10826 AviList species joined
+- eBird 2021: `data/cache/ebird-taxonomy-2021.json`, 10824 species, 10704 AviList species joined
+- eBird 2019: `data/cache/ebird-taxonomy-2019.json`, 10721 species, 10597 AviList species joined
+- eBird 2018: `data/cache/ebird-taxonomy-2018.json`, 10585 species, 10455 AviList species joined
+- eBird 2017: `data/cache/ebird-taxonomy-2017.json`, 10550 species, 10414 AviList species joined
+- eBird 2016: `data/cache/ebird-taxonomy-2016.json`, 10514 species, 10366 AviList species joined
+- eBird 2015: `data/cache/ebird-taxonomy-2015.json`, 10473 species, 10319 AviList species joined
+- current names of another species -> concept: 25
+- eBird names of another species kept under a reused code -> concept: 8
+- ebird2015: code not found, joined by the newer name: 364
+- ebird2016: code not found, joined by the newer name: 352
+- ebird2017: code not found, joined by the newer name: 342
+- ebird2018: code not found, joined by the newer name: 319
+- ebird2019: code not found, joined by the newer name: 249
+- ebird2021: code not found, joined by the newer name: 223
+- ebird2022: code not found, joined by the newer name: 158
+- ebird2023: code not found, joined by the newer name: 102
+- ebird2024: code not found, joined by the newer name: 51
+- linked directly: 11131
+- linked through subspecies: 1280
+- names that are a concept in one source, a synonym in another -> concept: 5
+- unlinked species rows: 107
+
+### By kind
+
+| kind | species | names |
+|---|---|---|
+| genus | 2662 | 3027 |
+| genus_ending | 546 | 582 |
+| epithet | 136 | 145 |
+| spelling | 531 | 553 |
+| concept | 2025 | 2563 |
+
+### By source
+
+| source | species | names |
+|---|---|---|
+| ioc15.2 | 117 | 137 |
+| ioc15.1 | 241 | 276 |
+| clements2025 | 39 | 50 |
+| birdlife10 | 931 | 1001 |
+| ebird2024 | 53 | 53 |
+| ebird2023 | 279 | 279 |
+| ebird2022 | 452 | 452 |
+| ebird2021 | 524 | 524 |
+| ebird2019 | 783 | 783 |
+| ebird2018 | 862 | 862 |
+| ebird2017 | 932 | 932 |
+| ebird2016 | 1046 | 1046 |
+| ebird2015 | 1137 | 1137 |
+| hm4 | 1594 | 1605 |
+| hbw | 2813 | 2862 |
+| sm93 | 2623 | 2683 |
+| peters | 4107 | 4181 |
+
+Species with `sci_book_prev`: 3160.
+
+### Examples (30)
+
+| Scientific name | sci_book_prev | sci_prev |
+|---|---|---|
+| Sibirionetta formosa | Anas formosa | Anas formosa (genus: ebird2016, ebird2015, hbw, sm93, peters) |
+| Spinus spinus | Carduelis spinus | Carduelis spinus (genus: hbw, sm93, peters) |
+| Calidris pugnax | Philomachus pugnax | Philomachus pugnax (genus: hbw, sm93, peters) |
+| Astur gentilis | Accipiter gentilis | Accipiter gentilis (genus: birdlife10, ebird2023, ebird2022, ebird2021, ebird2019, ebird2018, ebird2017, ebird2016, ebird2015, hm4, hbw, sm93, peters) |
+| Corvus corone |  | Corvus cornix (concept: ioc15.2, ioc15.1, clements2025, hbw) |
+| Apteryx maxima | Apteryx haastii | Apteryx haastii (epithet: birdlife10, ebird2023, ebird2022, ebird2021, ebird2019, ebird2018, ebird2017, ebird2016, ebird2015, hm4, hbw, sm93, peters) |
+| Bubo scandiacus | Nyctea scandiaca | Nyctea scandiaca (genus_ending: hbw, sm93, peters) |
+| Setophaga petechia | Dendroica petechia | Dendroica petechia (genus: hbw, sm93, peters) |
+| Phaenicophaeus sumatranus | Rhopodytes sumatranus | Rhopodytes sumatranus (genus: peters) |
+| Grus virgo | Anthropoides virgo | Anthropoides virgo (genus: birdlife10, ebird2024, ebird2023, ebird2022, ebird2021, ebird2019, ebird2018, ebird2017, ebird2016, ebird2015, hbw, peters) |
+| Gallinago jamesoni | Chubbia jamesoni | Chubbia jamesoni (genus: peters) |
+| Microcarbo melanoleucos | Phalacrocorax melanoleucos | Phalacrocorax melanoleucos (genus: ebird2015, hbw, sm93, peters) |
+| Heliodoxa rubricauda | Clytolaema rubricauda | Clytolaema rubricauda (genus: birdlife10, ebird2021, ebird2019, ebird2018, ebird2017, ebird2016, ebird2015, hm4, hbw, sm93, peters) |
+| Strix woodfordii | Ciccaba woodfordii | Ciccaba woodfordii (genus: peters) |
+| Merops hirundineus | Dicrocercus hirundineus | Dicrocercus hirundineus (genus: peters) |
+| Dryobates cathpharius | Dendrocopos cathpharius | Dendrocopos cathpharius (genus: hm4, hbw, sm93, peters) |
+| Glossoptilus goldiei | Psitteuteles goldiei | Psitteuteles goldiei (genus: birdlife10, ebird2019, ebird2018, ebird2017, ebird2016, ebird2015, hm4, hbw, sm93, peters); Glossoptila goldiei (spelling: ebird2021) |
+| Thamnophilus bernardi | Sakesphorus bernardi | Sakesphorus bernardi (genus: hbw, sm93, peters) |
+| Trichodere cockerelli | Lichmera cockerelli | Lichmera cockerelli (genus: peters) |
+| Carterornis chrysomela | Monarcha chrysomela | Monarcha chrysomela (genus: hbw, sm93, peters) |
+| Alaudala raytal | Calandrella raytal | Calandrella raytal (genus: ebird2015, hbw, sm93, peters) |
+| Phylloscopus olivaceus | Seicercus olivaceus | Seicercus olivaceus (genus: hm4) |
+| Fulvetta ludlowi | Alcippe ludlowi | Alcippe ludlowi (genus: ebird2018, ebird2017, ebird2016, ebird2015, sm93); Alcippe cinereiceps ludlowi (concept: peters) |
+| Heterophasia gracilis | Malacias gracilis | Malacias gracilis (genus: hbw) |
+| Cichlopsis leucogenys | Myadestes leucogenys | Cichlopsis chubbi (concept: birdlife10); Cichlopsis gularis (concept: birdlife10); Cichlopsis peruviana (concept: birdlife10); Myadestes leucogenys (genus: peters) |
+| Larvivora akahige | Luscinia akahige | Luscinia akahige (genus: hbw); Erithacus akahige (genus: sm93, peters) |
+| Spermestes cucullata | Lonchura cucullata | Lonchura cucullata (genus: sm93, peters) |
+| Spinus cucullatus | Carduelis cucullata | Carduelis cucullata (genus_ending: hbw, sm93, peters) |
+| Setophaga virens | Dendroica virens | Dendroica virens (genus: hbw, sm93, peters) |
+| Stilpnia cyanoptera | Tangara argentea | Tangara argentea (epithet: birdlife10, hm4); Tangara cyanoptera (genus: hbw, sm93, peters) |
+
+### Rows of the comparison file not joined to AviList (107)
+
+Species rows with no AviList name of their own and no AviList subspecies under them (hybrids, doubtful and extinct forms, lumps noted only in the Notes column). Join by hand with `field = sci_prev` if needed.
+
+| IOC 15.2 seq. | names | why | notes (shortened) |
+|---|---|---|---|
+| 360 | clements2025: Chenonetta finschi; birdlife10: Chenonetta finschi | no AviList species |  |
+| 464 | tif: Anas chathamica | no AviList species | John H. Boyd III: The extinct Chatham Duck, usually placed in its own genus Pachyanas, actually belongs with the brown … |
+| 672 | peters: Ortalis spixi | no AviList species | H&M4: superciliaris includes Ortalis spixi |
+| 1373 | sm93: Lophura hatinhensis | no AviList species | H&M4: Lophura edwardsi includes L. hatinhensis |
+| 1406 | hbw: Lophura imperialis; peters: Hierophasis imperialis; sm93: Lophura imperialis | no AviList species | H&M4: Lophura imperialis is considered a hybrid |
+| 2094 | peters: Caprimulgus ludovicianus | no AviList species | H&M4: inornatus includes vinaceabrunneus, ludovicianus and malbranti |
+| 2219 | birdlife10: Aegotheles archboldi; hm4: Aegotheles archboldi; hbw: Aegotheles archboldi; sm93: Aegotheles archboldi; tif: Aegotheles archboldi | no AviList species | IOC7.2: Treat Mountain Owlet-nightjar as monotypic including Archbold's Owlet-nightjar A. archboldi and Salvadori's Owl… |
+| 2223 | hm4: Aegotheles salvadorii; tif: Aegotheles salvadorii | no AviList species |  |
+| 2226 | tif: Aegotheles novaezealandiae | no AviList species |  |
+| 2482 | peters: Hirund-apus ernsti | no AviList species | H&M4: cochinchinensis includes ernsti, formosana and rupchandi |
+| 2651 | peters: Apus toulsoni; sm93: Apus toulsoni | no AviList species | H&M4: Apus horus: The name toulsoni may refer to a local colour morph. |
+| 2711 | gaudin: Pygmornis maranhaoensis | no AviList species |  |
+| 2873 | peters: Heliangelus squamigularis | no AviList species | HBW: Heliangelus strophianus: Other forms known mainly or exclusively from Bogotá trade skins include “H. squamigularis… |
+| 2874 | peters: Heliangelus speciosa | no AviList species | HBW: Heliangelus strophianus: Other forms known mainly or exclusively from Bogotá trade skins include “H. squamigularis… |
+| 2875 | peters: Heliangelus rothschildi | no AviList species | HBW: Heliangelus strophianus: Other forms known mainly or exclusively from Bogotá trade skins include “H. squamigularis… |
+| 2876 | peters: Heliangelus luminosus | no AviList species | HBW: Heliangelus strophianus: Other forms known mainly or exclusively from Bogotá trade skins include “H. squamigularis… |
+| 2883 | hbw: Heliangelus splendidus | no AviList species | H&M4: viola includes pyropus and splendidus |
+| 2886 | hm4: Heliangelus zusii; hbw: Heliangelus zusii | no AviList species | IOC7.3: Hybrid Long-tailed Sylph Aglaiocercus kingii X ??? Pérez-Emán et al. 2017; see also Kirchman et al. 2010 |
+| 2910 | peters: Lithiophanes insignibarbis | no AviList species | HBW: “L. insignibarbis”, known from a single Bogotá trade skin and sometimes awarded monospecific genus Lithiophanes, m… |
+| 2934 | peters: Neolesbia nehrkorni | no AviList species | HBW: “Neolesbia nehrkorni” is known from only two specimens and appears to be a hybrid of present species [Aglaiocercus… |
+| 3056 | peters: Eriocnemis söderströmi | no AviList species | H&M4: Eriocnemis nigrivestis: "Eriocnemis soderstromi" is considered a hybrid between this and E. luciani |
+| 3075 | peters: Eriocnemis isaacsonii | no AviList species | H&M4: "Eriocnemis isaacsonii" is now treated as a hybrid |
+| 3282 | peters: Acestrura decorata | no AviList species | H&M4: "Chaetocercus decorata" is a hybrid between C. mulsant and C. heliodor |
+| 3290 | peters: Acestrura harterti | no AviList species | H&M4: "Chaetocercus harterti" is now considered a hybrid |
+| 3345 | birdlife10: Riccordia elegans; hm4: Chlorostilbon elegans; tif: Cynanthus elegans | no AviList species | IOC13.1: The extinct Gould's Emerald Riccordia elegans, formerly included in this genus, is known solely from the uniqu… |
+| 3393 | peters: Ptochoptera iolaima | no AviList species | HBW: Chlorostilbon poortmani: “Ptochoptera iolaima”, known from a specimen taken at Ypanema, São Paulo (Brazil), is pro… |
+| 3395 | peters: Chlorostilbon inexpectatus | no AviList species | H&M4: Chlorostilbon poortmani includes C. inexpectatus |
+| 3577 | birdlife10: Amazilia alfaroana; gaudin: Saucerottia alfaroana | no AviList species |  |
+| 3604 | gaudin: Amazilia saturata | no AviList species |  |
+| 3693 | peters: Amazilia cyaneotincta | no AviList species | H&M4: "Amazilia cyaneotincta" is probably an aberrant A. fimbriata or A. amabilis |
+| 4507 | clements2025: Columba thiriouxi; birdlife10: Columba thiriouxi | no AviList species |  |
+| 4585 | peters: Columba chiriquensis | no AviList species | H&M4: nigrirostris includes chiriquensis |
+| 4596 | clements2025: Nesoenas cicur; birdlife10: Nesoenas cicur; hm4: Streptopelia cicur | no AviList species |  |
+| 5465 | clements2025: Alectroenas payandeei; birdlife10: Alectroenas payandeei | no AviList species |  |
+| 5588 | peters: Ducula melanura | no AviList species |  |
+| 5592 | sm93: Ducula constans | no AviList species | H&M4: spilorrhoa includes constans |
+| 5870 | peters: Tricholimnas conditicius; sm93: Gallirallus conditicius | no AviList species | H&M4: sylvestris includes conditicius |
+| 5887 | clements2025: Tribonyx hodgenorum; birdlife10: Tribonyx hodgenorum | no AviList species |  |
+| 5935 | hm4: Fulica caribaea; hbw: Fulica caribaea; peters: Fulica caribaea; sm93: Fulica caribaea | no AviList species | IOC6.3: Caribbean Coot is a white shield color morph of American Coot (HBW Alive, Donegan et al. 2015, NACC 2016-A-9) |
+| 5978 | clements2025: Porphyrio kukwiedei; birdlife10: Porphyrio kukwiedei | no AviList species | Extinct |
+| 5979 | clements2025: Porphyrio caerulescens; birdlife10: Porphyrio caerulescens; gaudin: Porphyrio coerulescens | no AviList species | Extinct. Original spelling is Apterornis cœrulescens. |
+| 6072 | peters: Pennula millsi | no AviList species | H&M4: Zapornia sandwichensis: Pennula millsi is a synonym |
+| 7433 | tif: Thalobata cryptoleucura | no AviList species | John H. Boyd III: I treat the Pacific populations of band-rumped storm-petrels as a single species, T. cryptoleucura, i… |
+| 7668 | gaudin: Fregata rothschildi | no AviList species |  |
+| 8565 | tif: Accipiter fringilloides; gaudin: Accipiter fringilloides | no AviList species |  |
+| 9686 | gaudin: Megascops stangiae | no AviList species |  |
+| 9687 | gaudin: Megascops alagoensis | no AviList species |  |
+| 9688 | gaudin: Megascops ater | no AviList species |  |
+| 9867 | gaudin: Heterotrogon camerunense | no AviList species |  |
+| 10541 | hm4: Todiramphus miyakoensis; peters: Halcyon miyakoensis | no AviList species | TOC12.1: Delete subspecies miyakoensis. Treat [cinnamominus] as monotypic. Includes previously accepted, extinct race m… |
+| 10684 | peters: Ceyx goodfellowi | no AviList species | H&M4: margarethae includes goodfellowi and virgicapitus |
+| 11012 | gaudin: Bucco dugandi | no AviList species |  |
+| 11208 | peters: Pteroglossus mariae; sm93: Pteroglossus mariae | no AviList species |  |
+| 11369 | peters: Megalaima robustirostris | no AviList species | HBW: Form described from Assam as “robustirostris” long considered a separate species, but apparently matched by specim… |
+| 11500 | tif: Pogoniulus makawai | no AviList species | IOC13.2: P. makawai, known only from the unique type specimen, was previously treated as a species based on its distinc… |
+| 11734 | peters: Picumnus guttifer | no AviList species |  |
+| 11804 | peters: Melanerpes rubrifrons | no AviList species | H&M4: cruentatus includes extensus and rubrifrons |
+| 13161 | peters: Touit emmae | no AviList species | H&M4: T. emmae was described from the female of Touit stictopterus |
+| 13310 | clements2025: Amazona martinicana; birdlife10: Amazona martinicana | no AviList species | Extinct |
+| 13311 | clements2025: Amazona violacea; birdlife10: Amazona violacea | no AviList species | Extinct |
+| 13525 | peters: Ara caninde | no AviList species | H&M4: Ara ararauna includes some aberrant birds named caninde. |
+| 13532 | sm93: Ara cubensis | no AviList species | H&M4: tricolor includes cubensis |
+| 13590 | clements2025: Psittacara labati; birdlife10: Psittacara labati | no AviList species | Extinct |
+| 13763 | hbw: Psittacula intermedia; peters: Psittacula intermedia; sm93: Psittacula intermedia | no AviList species | H&M4: The name intermedia has been shown to relate to hybrids. / Penhallurick: Rasmussen & Collar, 1999, Bulletin of th… |
+| 14001 | peters: Domicella tibialis | no AviList species | H&M4: L. tibialis might have been applied to aberrant specimens of L. domicella |
+| 15118 | peters: Syndactyla mirandae | no AviList species | H&M4: Syndactyla mirandae was shown to be a synonym of S. dimidiata / HBW: The taxon S. mirandae, described from C Braz… |
+| 15119 | peters: Philydor baeri | no AviList species |  |
+| 15601 | peters: Synallaxis poliophrys | no AviList species | H&M4: Includes S. poliophrys / HBW: Proposed taxon S. poliophrys was based on a misidentified specimen of present speci… |
+| 15927 | tif: Herpsilochmus scapularis | no AviList species |  |
+| 16189 | sm93: Phlegopsis barringeri | no AviList species | H&M4: Phlegopsis barringeri is considered a hybrid between P. erythroptera and P. nigromaculata / HBW: Phlegopsis nigro… |
+| 16281 | gaudin: Cercomacroides hypomelaena | no AviList species |  |
+| 16359 | peters: Sipia rosenbergi | no AviList species | H&M4: Sipia rosenbergi is a synonym of this species [Sipia nigricauda] / HBW: Myrmeciza nigricauda: Forms a superspecie… |
+| 16753 | hm4: Scytalopus notorius; gaudin: Scytalopus notorius | no AviList species | H&M4: For arguments that this is a synonym of S. speluncae, see Maurício (2005, 2010); but see also Raposo et al. (2012) |
+| 16912 | peters: Serpophaga araguayae | no AviList species | H&M4: [caniceps] includes Serpophaga araguayae / HBW: Described taxon Serpophaga araguayae, based on a single specimen … |
+| 17005 | gaudin: Camptostoma thyellophilum | no AviList species |  |
+| 17277 | tif: Leptopogon transandinus | no AviList species |  |
+| 17447 | peters: Poecilotriccus tricolor | no AviList species | H&M4: P. tricolor is a synonym [of P. capitalis] / HBW: Described taxon P. tricolor, from SW Brazil (Rondônia), has rec… |
+| 18539 | gaudin: Schiffornis intercedens | no AviList species |  |
+| 18546 | gaudin: Schiffornis cracrafti | no AviList species |  |
+| 20255 | gaudin: Laniarius somaliensis | no AviList species |  |
+| 21088 | tif: Pachycephala arthuri; gaudin: Pachycephala arthuri | no AviList species |  |
+| 21153 | gaudin: Pachycephala efatensis | no AviList species |  |
+| 21733 | gaudin: Oriolus alleni | no AviList species |  |
+| 22440 | gaudin: Arses lauterbachi | no AviList species |  |
+| 23162 | gaudin: Melampitta rostrata | no AviList species |  |
+| 23164 | gaudin: Melampitta longicauda | no AviList species |  |
+| 24128 | hbw: Heteromirafra sidamoensis; sm93: Heteromirafra sidamoensis | no AviList species | H&M4: For treatment [sidamoensis] as a subspecies of H. archeri, see Spottiswoode et al. (2013). |
+| 24134 | peters: Mirafra candida | no AviList species | H&M4: pulpa includes candida / HBW: Birds from R Nyiro, in NE Kenya, described as species “M. candida”, but type specim… |
+| 24620 | sm93: Andropadus hallae | no AviList species | H&M4: zombensis includes marwitzi and hallae / HBW: Described taxon A. hallae, known only from the single type specimen… |
+| 24653 | hm4: Phyllastrephus leucolepis; hbw: Phyllastrephus leucolepis; sm93: Phyllastrephus leucolepis; tif: Phyllastrephus leucolepis | no AviList species | IOC8.1: Enigmatic Liberian Greenbul [Phyllastrephus leucolepis] is deemed a plumage variant of Icterine Greenbul P. ict… |
+| 25082 | peters: Psalidoprocne petiti; sm93: Psalidoprocne petiti; gaudin: Psalidoprocne petiti | no AviList species |  |
+| 26798 | ioc15.2: Apalis flavocincta; ioc15.1: Apalis flavocincta; birdlife10: Apalis flavocincta; gaudin: Apalis flavocincta | no AviList species |  |
+| 27154 | hm4: Curruca inornata; tif: Melizophilus inornatus | no AviList species | IOC10.2: Western Subalpine Warbler is split from (Eastern) Subalpine Warbler C. cantillans following Zuccon et al. (202… |
+| 27685 | hm4: Zosterops rendovae; peters: Zosterops rendovae; gaudin: Zosterops rendovae | no AviList species |  |
+| 27853 | peters: Stachyris rodolphei; sm93: Stachyris rodolphei | no AviList species | H&M4: [rufifrons] considered to include rodolphei, IOC10.1: Variant of Rufous-fronted Babbler with no known population … |
+| 30293 | gaudin: Catharus berlepschi | no AviList species |  |
+| 30295 | gaudin: Catharus arcanus | no AviList species |  |
+| 30690 | clements2025: Aplonis ulietensis; birdlife10: Aplonis ulietensis; hbw: Turdus ulietensis; gaudin: Aplonis ulietensis | no AviList species | HBW: This is another of those species known today only from a painting by Georg Forster. This painting, now in the Fors… |
+| 32341 | peters: Anthreptes pujoli | no AviList species | H&M4: rectirostris includes pujoli / HBW: description of pujoli (from Guinea) is based on a juvenile specimen of nomina… |
+| 33076 | sm93: Ploceus victoriae | no AviList species | H&M4: We have not listed P. victoriae Ash, 1986. It remains best considered a species inquirenda / HBW: Ploceus castano… |
+| 33233 | peters: Foudia bruante | no AviList species | Wikipedia: A type of fody on Réunion was previously mentioned as Foudia bruante by Philipp Ludwig Statius Müller in the… |
+| 33244 | clements2025: Foudia delloni; birdlife10: Foudia delloni | no AviList species |  |
+| 34514 | peters: Neospiza concolor | no AviList species | Neospiza concolor is listed twice in Peters et al. checklist |
+| 35084 | peters: Chlorospingus zeledoni | no AviList species | H&M4: C. zeledoni is considered to be a colour morph [of C. pileatus] / HBW: The form “zeledoni”, originally described … |
+| 36130 | peters: Icterus xantholemus | no AviList species | H&M4: [Xanthopsar flavus] includes Icterus xantholemus / HBW: Form Icterus xantholemus, based on a single speciment fro… |
+| 37294 | peters: Sporophila insulata; sm93: Sporophila insulata | no AviList species | H&M4: [S. telasco] includes S. insulata / HBW: Taxonomic status of “S. insulata” (known only from Tumaco I, off Nariño,… |
+| 37314 | sm93: Sporophila zelichi | no AviList species | H&M4: [S. palustris] includes S. zelichi / HBW: form described as S. zelichi (from Entre Ríos, in NE Argentina) conside… |

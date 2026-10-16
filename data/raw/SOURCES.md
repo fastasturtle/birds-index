@@ -85,9 +85,44 @@ overrides (`data/overrides.csv`). The build script is `scripts/build.py`.
 - **Licence:** CC0 1.0
 - **Used for:** `ru_source = "wikidata"` in `data/taxa.json` when ZMMU has no name.
 
-## 7. Manual overrides
+## 7. IOC "vs other lists" — former scientific names (committed)
+
+- **Name:** IOC 15.2 vs other lists (cross reference between IOC 15.2 and
+  AviList v2025, Clements v2025, HBW/BirdLife v10 (2025), Howard & Moore 4.1,
+  HBW 1992–2013, Peters 1931–1986, TiF 3.10, Gaudin 2025, Sibley & Monroe
+  1993, IOC 15.1), compiled by Peter Kovalik
+- **Version:** 15.2 (file dated 26 April 2026)
+- **File:** `data/raw/IOC_15.2_vs_other_lists.xlsx` (downloaded 2026-10-16)
+- **URL:** https://www.worldbirdnames.org/IOC_15.2_vs_other_lists.xlsx
+- **Licence:** CC BY 3.0 (published on the IOC World Bird List site, whose
+  content is CC BY 3.0)
+- **Citation:** Kovalik P. 2026. IOC 15.2 vs other lists. In: Gill F,
+  Donsker D & Rasmussen P (Eds). IOC World Bird List (v15.2).
+  https://www.worldbirdnames.org/
+- **Used for:** `sci_prev` / `sci_book_prev` in `data/species.json`: names by
+  IOC 15.2 and 15.1, Clements 2025, BirdLife v10, H&M 4.1, HBW, Peters and
+  S&M 1993 that differ from the AviList name; rows are joined on the AviList
+  column. TiF and Gaudin columns are not used (alternative, not former,
+  classifications).
+
+## 8. eBird taxonomy versions 2015–2024 — former scientific names (not redistributed)
+
+- **URL:** https://api.ebird.org/v2/ref/taxonomy/ebird?fmt=json&cat=species&version=YYYY
+  (works without an API key; versions 2015–2019 and 2021–2024, there is no 2020)
+- **Licence / terms:** eBird data terms of use, as for source 3. Only species
+  names and codes are cached in `data/cache/ebird-taxonomy-YYYY.json`
+  (gitignored), not redistributed.
+- **Used for:** `sci_prev` sources `ebird2015` … `ebird2024`; joined on the
+  eBird species code (AviList `Species_code_Cornell_Lab`), or on the name
+  from the next newer version when the code changed with a split. If the API
+  is unreachable and there is no cache, the version is skipped (noted in
+  `data/report.md`).
+
+## 9. Manual overrides
 
 - **File:** `data/overrides.csv` (`sci,field,value,note`), applied last.
   An override of `ru` sets `ru_source = "manual"`.
   `sci` may also be an order or family name (only `field = ru`), which sets
   the name in `data/taxa.json` with `ru_source = "manual"`.
+  `field = sci_prev` adds former names (`Genus species; Genus species`,
+  source `override`) or removes them (`-Genus species`).

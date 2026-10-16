@@ -16,6 +16,13 @@ lower-case first letter), `en_head` (last word of the English name). `ru_ebird`
 keeps the eBird/Clements Russian name when it differs from the final `ru`
 (normalised comparison; suppressed by an override `field = ru_ebird`, value "-").
 
+Former scientific names go to `sci_prev` (list of {name, kind, sources}) and
+`sci_book_prev` (one name for the book's "= ..." line): from
+data/raw/IOC_15.2_vs_other_lists.xlsx (IOC 15.2/15.1, Clements 2025, BirdLife
+v10, H&M 4.1, HBW, Peters, S&M 1993; rows joined on the AviList column), from
+historical eBird taxonomies 2015-2024 (cached in data/cache/), and from
+overrides `field = sci_prev`.
+
 It also writes data/taxa.json: orders and families (in systematic order) with
 Russian names from the ZMMU passerine spreadsheet (family header rows) ->
 "zmmu", Wikidata (P1843 / ru label of the order or family item) -> "wikidata",
@@ -31,11 +38,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import difflib
 import json
 import re
 import shutil
 import sys
 import time
+import unicodedata
 from collections import Counter
 from pathlib import Path
 
@@ -53,6 +62,7 @@ EBIRD_PATH = CACHE / "ebird-taxonomy-ru.json"
 WIKIDATA_PATH = CACHE / "wikidata-ru-p1843.json"
 WIKIDATA_TAXA_PATH = CACHE / "wikidata-taxa-ru.json"
 ZMMU_PASSERINE_PATH = RAW / "Birds_rus_names_passerine.xlsx"
+VS_LISTS_PATH = RAW / "IOC_15.2_vs_other_lists.xlsx"
 OVERRIDES_PATH = DATA / "overrides.csv"
 OUT_JSON = DATA / "species.json"
 OUT_DOCS_JSON = ROOT / "docs" / "data" / "species.json"
@@ -65,6 +75,8 @@ IOC_URL = "https://worldbirdnames.org/Multiling%20IOC%2015.2.xlsx"
 EBIRD_URL = "https://api.ebird.org/v2/ref/taxonomy/ebird?fmt=json&locale=ru&cat=species"
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
 ZMMU_PASSERINE_URL = "https://zmmu.msu.ru/files/publications/Birds_rus_names_passerine.xlsx"
+VS_LISTS_URL = "https://www.worldbirdnames.org/IOC_15.2_vs_other_lists.xlsx"
+EBIRD_HISTORY_URL = "https://api.ebird.org/v2/ref/taxonomy/ebird"
 
 USER_AGENT = "birds-index-build/0.1 (https://github.com/fastasturtle/birds-index)"
 CYRILLIC = re.compile(r"[Ѐ-ӿ]")
@@ -82,11 +94,12 @@ EXTINCT_MAP = {
 FIELDS = [
     "id", "seq", "order", "family", "family_en", "sci", "authority", "auth", "en",
     "ru", "ru_alt", "ru_head", "ru_head_source", "ru_book", "en_head", "ru_ebird",
-    "ru_source", "ru_status", "ioc_sci", "extinct", "iucn",
+    "ru_source", "ru_status", "ioc_sci", "sci_prev", "sci_book_prev", "extinct", "iucn",
 ]
-# Fields computed by normalise_names / add_ebird_names; only ru_alt, ru_head
-# and ru_ebird (value "-" = suppress) may be given in overrides.csv (handled specially).
-DERIVED_FIELDS = {"ru_head_source", "ru_book", "en_head"}
+# Fields computed by normalise_names / add_ebird_names / build_sci_prev; only
+# ru_alt, ru_head, ru_ebird (value "-" = suppress) and sci_prev ("Genus species"
+# adds, "-Genus species" removes) may be given in overrides.csv (handled specially).
+DERIVED_FIELDS = {"ru_head_source", "ru_book", "en_head", "sci_book_prev"}
 
 
 # --------------------------------------------------------------------------- helpers
@@ -248,6 +261,9 @@ def load_avilist(path: Path) -> list[dict]:
             "ru_source": None,
             "ru_status": "missing",
             "ioc_sci": None,  # exact matching only in this version
+            "sci_prev": [],
+            "sci_book_prev": None,
+            "_ebird_code": clean(row.get("Species_code_Cornell_Lab")),
             "extinct": EXTINCT_MAP[status.lower()] if status else None,
             "iucn": clean(row.get("IUCN_Red_List_Category")),
         })
@@ -388,6 +404,367 @@ def load_wikidata(path: Path) -> dict[str, str]:
         preferred = [n for n in names if n in labels]
         out[key] = (preferred or names)[0]
     return out
+
+
+# ---- previous scientific names (sci_prev)
+
+# Columns of IOC_15.2_vs_other_lists.xlsx (0-based) and a fragment of each
+# header, checked on load so that a changed layout fails loudly.
+VS_COLUMNS = {
+    "ioc152": (1, "(v15.2)"),
+    "rank": (2, "Rank"),
+    "notes": (3, "Notes"),
+    "avilist": (4, "AviList"),
+    "clements2025": (6, "Clements"),
+    "birdlife10": (7, "BirdLife"),
+    "hm4": (9, "Howard and Moore"),
+    "hbw": (10, "Handbook of the Birds of the World, Lynx"),
+    "peters": (11, "Peters"),
+    "tif": (12, "TiF"),
+    "gaudin": (13, "Gaudin"),
+    "sm93": (14, "Sibley"),
+    "ioc151": (15, "(v15.1)"),
+}
+# Lists taken from the comparison file (TiF and Gaudin are alternative
+# classifications, not former ones, and are not used).
+VS_LISTS = ("ioc152", "ioc151", "clements2025", "birdlife10", "hm4", "hbw", "peters", "sm93")
+EBIRD_HISTORY_YEARS = (2015, 2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024)  # no 2020 version
+# "Freshness" of a source: lower = more recent. Used to sort sci_prev and its sources.
+PREV_SOURCE_ORDER = (["override", "ioc15.2", "ioc15.1", "clements2025", "birdlife10"]
+                     + [f"ebird{y}" for y in sorted(EBIRD_HISTORY_YEARS, reverse=True)]
+                     + ["hm4", "hbw", "sm93", "peters"])
+PREV_SOURCE_RANK = {s: i for i, s in enumerate(PREV_SOURCE_ORDER)}
+VS_SOURCE_CODE = {"ioc152": "ioc15.2", "ioc151": "ioc15.1"}
+PREV_KINDS = ("genus", "genus_ending", "epithet", "spelling", "concept")
+BOOK_PREV_KINDS = {"genus", "genus_ending", "epithet"}
+
+LIGATURES = str.maketrans({"æ": "ae", "Æ": "Ae", "œ": "oe", "Œ": "Oe", "ß": "ss",
+                           "“": "", "”": "", '"': "", "'": "", "’": "", "?": "", ".": ""})
+OLD_GENUS = re.compile(r"[A-Z][a-z]+")
+OLD_EPITHET = re.compile(r"[a-z](-[a-z]+)?[a-z]*")
+EPITHET_ENDINGS = re.compile(r"(orum|arum|ius|ior|ium|ia|us|um|is|es|os|on|ae|ii|er|ra|rum|re|a|e|i|o)$")
+
+
+def parse_old_name(raw) -> list[str] | None:
+    """Normalise a name as written in an older checklist; return its words.
+
+    Diacritics and ligatures are dropped ("Aërornis" -> "Aerornis",
+    "florentiæ" -> "florentiae"), as are quotes, "?" and dots. A capitalised
+    word in parentheses is a subgenus and is dropped; a lower-case one is
+    Peters's notation for the species a form belongs to and becomes the middle
+    word of a trinomial ("Collocalia (francica?) elaphra" -> Collocalia
+    francica elaphra). Hyphens go ("Hirund-apus", "albo-gularis"), except after a single
+    letter in an epithet ("v-nigrum").
+    Returns None if the result is not a binomial or trinomial.
+    """
+    if raw is None:
+        return None
+    text = unicodedata.normalize("NFKD", str(raw).translate(LIGATURES))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+
+    def paren(m):
+        inner = m.group(1).strip()
+        return " " if inner[:1].isupper() else f" {inner} "
+    text = re.sub(r"\(([^)]*)\)", paren, text)
+    words = text.split()
+    if not 2 <= len(words) <= 3:
+        return None
+    words = [words[0].replace("-", "")] + [w.lower() if len(w.split("-")[0]) == 1 else w.lower().replace("-", "")
+                          for w in words[1:]]
+    if not OLD_GENUS.fullmatch(words[0]) or not all(OLD_EPITHET.fullmatch(w) for w in words[1:]):
+        return None
+    return words
+
+
+def _epithet_stem(ep: str) -> str:
+    return EPITHET_ENDINGS.sub("", ep)
+
+
+def _similar(a: str, b: str, ratio: float) -> bool:
+    return difflib.SequenceMatcher(None, a, b).ratio() >= ratio
+
+
+def classify_prev(old: str, sci: str) -> str:
+    """Kind of a former binomial `old` relative to the current name `sci`.
+
+    genus        other genus, same epithet (Anas formosa -> Sibirionetta formosa)
+    genus_ending other genus, epithet changed only to agree in gender, or a
+                 spelling variant of it (Nyctea scandiaca -> Bubo scandiacus)
+    epithet      other epithet (Apteryx haastii -> Apteryx maxima), also with
+                 another genus (Ptilinopus bernsteinii -> Megaloprepia formosa)
+    spelling     same genus (or a spelling variant of it), epithet differs
+                 only in its ending or spelling (Emblema modesta -> E. modestum)
+    """
+    og, oe = old.split()
+    ng, ne = sci.split()
+    if oe == ne:
+        ep = "same"
+    elif _epithet_stem(oe) == _epithet_stem(ne) or (
+            min(len(oe), len(ne)) >= 5 and _similar(oe, ne, 0.8)):
+        ep = "ending"
+    else:
+        ep = "other"
+    same_genus = og == ng or (min(len(og), len(ng)) >= 5 and _similar(og, ng, 0.85))
+    if ep == "other":
+        return "epithet"
+    if same_genus:
+        return "spelling"
+    return "genus" if ep == "same" else "genus_ending"
+
+
+def _test_prev() -> None:
+    assert parse_old_name("Collocalia (francica?) elaphra") == ["Collocalia", "francica", "elaphra"]
+    assert parse_old_name("Parus (Periparus) ater") == ["Parus", "ater"]
+    assert parse_old_name("Aërornis senex") == ["Aerornis", "senex"]
+    assert parse_old_name("Hirund-apus ernsti") == ["Hirundapus", "ernsti"]
+    assert parse_old_name("Somateria mollissima v-nigrum") == ["Somateria", "mollissima", "v-nigrum"]
+    assert parse_old_name("Eurostopodus albo-gularis") == ["Eurostopodus", "albogularis"]
+    assert classify_prev("Anas formosa", "Sibirionetta formosa") == "genus"
+    assert classify_prev("Nyctea scandiaca", "Bubo scandiacus") == "genus_ending"
+    assert classify_prev("Chlidonias nigra", "Chlidonias niger") == "spelling"
+    assert classify_prev("Elaenia cherrei", "Elaenia cherriei") == "spelling"
+    assert classify_prev("Apteryx haastii", "Apteryx maxima") == "epithet"
+    assert classify_prev("Ptilinopus bernsteinii", "Megaloprepia formosa") == "epithet"
+    assert classify_prev("Carduelis spinus", "Spinus spinus") == "genus"
+
+
+def load_vs_lists(path: Path, avi_names: set[str]) -> tuple[dict, list, Counter]:
+    """Former names from IOC_15.2_vs_other_lists.xlsx, keyed by AviList name.
+
+    The sheet aligns species and subspecies rows of IOC 15.2 with AviList and
+    older lists. Rows are grouped into blocks: a species row and the
+    subspecies rows under it. A block is linked to the AviList species in its
+    own AviList cell; failing that (a species of IOC or an older list that
+    AviList lumps), to the single AviList species whose subspecies fill the
+    AviList cells of the block's rows. Collected (name, kind, source):
+
+    * linked directly: every list's binomial that differs from the AviList
+      name, classified by classify_prev; a trinomial (the list kept the
+      species as a subspecies of another) is `concept`;
+    * linked directly, subspecies rows without an AviList entry: trinomials
+      whose last epithet is the species' epithet and whose species epithet is
+      another one ("Struthio camelus molybdophanes") -> `concept`;
+    * linked through subspecies: the list's species name (a species now
+      included in the AviList one, e.g. Corvus cornix in Corvus corone) ->
+      `concept`.
+
+    Returns ({avilist_sci: [(name, kind, source)]}, unlinked blocks,
+    unparsed [(avilist_sci, source, raw)], stats).
+    """
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb.worksheets[0]
+    rows = ws.iter_rows(values_only=True)
+    header = next(rows)
+    for key, (col, frag) in VS_COLUMNS.items():
+        if frag not in str(header[col] or ""):
+            raise SystemExit(f"{path.name}: column {col} should be {key} ({frag!r}), "
+                             f"found {str(header[col])[:60]!r}")
+    blocks: list[list] = []
+    for row in rows:
+        rank = clean(row[VS_COLUMNS["rank"][0]])
+        if rank == "species":
+            blocks.append([row, []])
+        elif rank and blocks:
+            blocks[-1][1].append(row)
+    wb.close()
+
+    def cell(row, key):
+        return clean(row[VS_COLUMNS[key][0]])
+
+    out: dict[str, list] = {}
+    unlinked, unparsed = [], []
+    stats: Counter = Counter()
+    for srow, ssp_rows in blocks:
+        avi = cell(srow, "avilist")
+        if avi:
+            if avi not in avi_names:
+                stats["avilist name not in AviList"] += 1
+                unlinked.append((srow, "AviList cell not an AviList species"))
+                continue
+            stats["linked directly"] += 1
+            g, e = avi.split()
+            for key in VS_LISTS:
+                raw = cell(srow, key)
+                words = parse_old_name(raw)
+                if raw and words is None:
+                    unparsed.append((avi, VS_SOURCE_CODE.get(key, key), raw))
+                if not words:
+                    continue
+                name = " ".join(words)
+                if len(words) == 3:
+                    out.setdefault(avi, []).append((name, "concept", key))
+                elif name != avi:
+                    out.setdefault(avi, []).append((name, classify_prev(name, avi), key))
+            stem = _epithet_stem(e)
+            for row in ssp_rows:
+                if cell(row, "avilist"):
+                    continue
+                for key in VS_LISTS:
+                    words = parse_old_name(cell(row, key))
+                    if (words and len(words) == 3 and _epithet_stem(words[2]) == stem
+                            and _epithet_stem(words[1]) != stem):
+                        out.setdefault(avi, []).append((" ".join(words), "concept", key))
+            continue
+        parents = {" ".join(str(cell(r, "avilist")).split()[:2])
+                   for r in ssp_rows if cell(r, "avilist")}
+        parents &= avi_names
+        if len(parents) != 1:
+            stats["unlinked species rows"] += 1
+            unlinked.append((srow, "no AviList species" if not parents
+                             else "several AviList species: " + ", ".join(sorted(parents))))
+            continue
+        target = parents.pop()
+        stats["linked through subspecies"] += 1
+        for key in VS_LISTS:
+            words = parse_old_name(cell(srow, key))
+            if words and " ".join(words) != target:
+                out.setdefault(target, []).append((" ".join(words), "concept", key))
+    return out, unlinked, unparsed, stats
+
+
+def ebird_history_path(year: int) -> Path:
+    return CACHE / f"ebird-taxonomy-{year}.json"
+
+
+def fetch_ebird_history(year: int, dest: Path) -> None:
+    """Fetch one historical eBird taxonomy (species only); cache name and code."""
+    log(f"  downloading eBird taxonomy {year}")
+    r = requests.get(EBIRD_HISTORY_URL, params={"fmt": "json", "cat": "species", "version": year},
+                     headers={"User-Agent": USER_AGENT}, timeout=300)
+    r.raise_for_status()
+    data = [{"sciName": x["sciName"], "speciesCode": x["speciesCode"]}
+            for x in r.json() if x.get("category") == "species"]
+    if not data:
+        raise ValueError(f"eBird taxonomy {year} is empty")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def load_ebird_history(records, mode: str) -> tuple[dict, dict, Counter]:
+    """Former names from historical eBird taxonomies, keyed by AviList name.
+
+    Versions are walked from the newest down. In each, a species is joined on
+    its eBird species code (AviList `Species_code_Cornell_Lab`); if the code
+    is not there (codes change with splits: norgos -> norgos1), on the name
+    the species had in the next newer version (at first, the current AviList
+    name). Group ("[... Group]") and subspecies entries are not species and
+    are skipped. Returns ({sci: [(name, kind, source)]}, {year: status}, stats).
+    """
+    status = {}
+    versions = []
+    for year in sorted(EBIRD_HISTORY_YEARS, reverse=True):
+        path = ebird_history_path(year)
+        if mode == "fetch" or (mode == "default" and not path.exists()):
+            try:
+                fetch_ebird_history(year, path)
+            except Exception as exc:  # noqa: BLE001 - keep the old cache or skip
+                log(f"  WARNING: eBird taxonomy {year} not downloaded: {exc}")
+        if not path.exists():
+            status[year] = "SKIPPED (not available)"
+            continue
+        by_code, by_sci = {}, set()
+        for x in json.loads(path.read_text(encoding="utf-8")):
+            name = clean(x.get("sciName"))
+            if not name or "[" in name or len(name.split()) != 2:
+                continue
+            by_code[x["speciesCode"]] = name
+            by_sci.add(name)
+        versions.append((year, path, by_code, by_sci))
+
+    out: dict[str, list] = {}
+    stats: Counter = Counter()
+    for year, path, by_code, by_sci in versions:
+        stats[year] = 0
+    for rec in records:
+        last = rec["sci"]
+        for year, path, by_code, by_sci in versions:
+            name = by_code.get(rec["_ebird_code"]) if rec["_ebird_code"] else None
+            if name is None and last in by_sci:
+                name = last
+                stats[f"ebird{year}: code not found, joined by the newer name"] += 1
+            if name is None:
+                continue
+            stats[year] += 1
+            last = name
+            if name != rec["sci"]:
+                out.setdefault(rec["sci"], []).append(
+                    (name, classify_prev(name, rec["sci"]), f"ebird{year}"))
+    for year, path, by_code, by_sci in versions:
+        status[year] = (f"`{path.relative_to(ROOT)}`, {len(by_code)} species, "
+                        f"{stats.pop(year)} AviList species joined")
+    return out, status, stats
+
+
+def build_sci_prev(records, collected: list[dict]) -> Counter:
+    """Fill sci_prev and sci_book_prev from the collected former names.
+
+    A name that is the current name of another AviList species is not a
+    synonym but that species (a broader concept in the old list): `concept`.
+    The same name from several sources is one entry; if one source makes it
+    a `concept` (in practice: the comparison file shows the old list's
+    species was broader, while an older eBird version reused the species
+    code under that name), it stays a concept. Overrides (`field = sci_prev`) add
+    names ("Genus species; Genus species", source "override") or remove them
+    ("-Genus species"), after everything else.
+    """
+    current = {r["sci"] for r in records}
+    stats: Counter = Counter()
+    conflicts: set[tuple[str, str]] = set()
+    ebird_concepts: set[tuple[str, str]] = set()
+    homonyms: set[tuple[str, str]] = set()
+    holders: dict[str, set[str]] = {}  # former name -> AviList species it is collected for
+    for src in collected:
+        for sci, items in src.items():
+            for name, _, _ in items:
+                holders.setdefault(name, set()).add(sci)
+    by_stem: dict[str, set[str]] = {}
+    for sci in current:
+        by_stem.setdefault(_epithet_stem(sci.split()[1]), set()).add(sci)
+
+    def ebird_concept(name: str, sci: str) -> bool:
+        """An older eBird name with another epithet that belongs to another
+        AviList species (same epithet and the old genus, the current genus,
+        or that species also has this former name): eBird kept the species
+        code for one daughter of a split (norgos = Accipiter gentilis is now
+        Astur atricapillus), so the name is a broader concept, not a synonym."""
+        og, oe = name.split()
+        return any(other != sci and (other.split()[0] in (og, sci.split()[0])
+                                     or other in holders.get(name, ()))
+                   for other in by_stem.get(_epithet_stem(oe), ()))
+    for rec in records:
+        merged: dict[str, dict] = {}
+        items = [it for src in collected for it in src.get(rec["sci"], [])]
+        items += [(name, None, "override") for name in rec.get("_prev_add", [])]
+        for name, kind, source in items:
+            source = VS_SOURCE_CODE.get(source, source)
+            if kind is None:  # override: classify like any other name
+                kind = "concept" if len(name.split()) == 3 else classify_prev(name, rec["sci"])
+            if kind != "concept" and name in current:
+                kind = "concept"
+                homonyms.add((rec["sci"], name))
+            elif kind == "epithet" and source.startswith("ebird") and ebird_concept(name, rec["sci"]):
+                kind = "concept"
+                ebird_concepts.add((rec["sci"], name))
+            ent = merged.setdefault(name, {"name": name, "kind": kind, "sources": []})
+            if ent["kind"] != kind and "concept" in (ent["kind"], kind):
+                ent["kind"] = "concept"
+                conflicts.add((rec["sci"], name))
+            if source not in ent["sources"]:
+                ent["sources"].append(source)
+        for name in rec.get("_prev_del", []):
+            if merged.pop(name, None) is None:
+                stats["override removals with no effect"] += 1
+                rec.setdefault("_prev_del_unused", []).append(name)
+        for ent in merged.values():
+            ent["sources"].sort(key=PREV_SOURCE_RANK.__getitem__)
+        rec["sci_prev"] = sorted(merged.values(),
+                                 key=lambda e: (PREV_SOURCE_RANK[e["sources"][0]], e["name"]))
+        rec["sci_book_prev"] = next((e["name"] for e in rec["sci_prev"]
+                                     if e["kind"] in BOOK_PREV_KINDS), None)
+    stats["names that are a concept in one source, a synonym in another -> concept"] = len(conflicts)
+    stats["current names of another species -> concept"] = len(homonyms)
+    stats["eBird names of another species kept under a reused code -> concept"] = len(ebird_concepts)
+    return stats
 
 
 # ---- order / family names
@@ -620,6 +997,19 @@ def apply_overrides(records, overrides, taxon_keys=frozenset()) -> list[str]:
             else:
                 warnings.append(f"override ru_ebird for {ov['sci']!r}: only '-' (suppress) "
                                 f"is supported, got {value!r}")
+            continue
+        if field == "sci_prev":
+            # "Genus species; -Genus species": add / remove former names
+            for item in (clean(v) for v in (value or "").split(";")):
+                if not item:
+                    continue
+                remove = item.startswith("-")
+                words = parse_old_name(item.lstrip("- "))
+                if not words:
+                    warnings.append(f"override sci_prev for {ov['sci']!r}: "
+                                    f"not a binomial or trinomial: {item!r}")
+                    continue
+                rec.setdefault("_prev_del" if remove else "_prev_add", []).append(" ".join(words))
             continue
         if field == "ru" and value == "-":
             value = None  # "-" = remove a wrong name: the species becomes "missing"
@@ -887,8 +1277,83 @@ def alt_clashes(records) -> list[tuple[str, str, str]]:
             if a.casefold() in main and main[a.casefold()] != r["sci"]]
 
 
+PREV_EXAMPLES = ("Sibirionetta formosa", "Spinus spinus", "Calidris pugnax", "Astur gentilis",
+                 "Corvus corone", "Apteryx maxima", "Bubo scandiacus", "Setophaga petechia")
+
+
+def prev_report(records, prev_log) -> tuple[list[str], dict]:
+    """Report section and counts for sci_prev / sci_book_prev."""
+    with_prev = [r for r in records if r["sci_prev"]]
+    kinds, sources = Counter(), Counter()
+    kind_species, source_species = Counter(), Counter()
+    for r in with_prev:
+        for e in r["sci_prev"]:
+            kinds[e["kind"]] += 1
+            sources.update(e["sources"])
+        kind_species.update({e["kind"] for e in r["sci_prev"]})
+        source_species.update({s for e in r["sci_prev"] for s in e["sources"]})
+    book = [r for r in records if r["sci_book_prev"]]
+    counts = {
+        "sci_prev_species": len(with_prev),
+        "sci_prev_names": sum(kinds.values()),
+        "sci_book_prev": len(book),
+        "sci_prev_vs_unlinked": len(prev_log["unlinked"]),
+        "sci_prev_vs_unparsed": len(prev_log["unparsed"]),
+    }
+    L = ["", f"## Former scientific names (`sci_prev`): {len(with_prev)} species", "",
+         "Former combinations from `data/raw/IOC_15.2_vs_other_lists.xlsx` (IOC 15.2, IOC 15.1, "
+         "Clements 2025, BirdLife v10, H&M 4.1, HBW, Peters, S&M 1993; rows joined on the AviList "
+         "column) and historical eBird taxonomies (`ebirdYYYY`, joined on the species code), plus "
+         "`field = sci_prev` overrides. AviList protonyms are not included. `sci_book_prev` is the "
+         "first name of kind genus / genus_ending / epithet (the list is sorted by the most recent "
+         "source, then by name). eBird versions are read from the public API without a key; "
+         "there is no 2020 version.", ""]
+    L += [f"- eBird {y}: {st}" for y, st in prev_log["ebird_status"].items()]
+    L += [f"- {k}: {v}" for k, v in sorted(prev_log["stats"].items())]
+    L += ["", "### By kind", ""]
+    L += md_table([(k, kind_species[k], kinds[k]) for k in PREV_KINDS],
+                  ["kind", "species", "names"])
+    L += ["", "### By source", ""]
+    L += md_table([(s, source_species[s], sources[s]) for s in PREV_SOURCE_ORDER if sources[s]],
+                  ["source", "species", "names"])
+    L += ["", f"Species with `sci_book_prev`: {len(book)}.", ""]
+
+    def fmt(r):
+        return "; ".join(f"{e['name']} ({e['kind']}: {', '.join(e['sources'])})"
+                         for e in r["sci_prev"])
+    by_sci = {r["sci"]: r for r in records}
+    sample = [by_sci[s] for s in PREV_EXAMPLES if s in by_sci]
+    step = max(1, len(book) // (30 - len(sample)))
+    sample += [r for r in book[::step] if r not in sample][:30 - len(sample)]
+    L += ["### Examples (30)", ""]
+    L += md_table([(r["sci"], r["sci_book_prev"] or "", fmt(r)) for r in sample],
+                  ["Scientific name", "sci_book_prev", "sci_prev"])
+    L += ["", f"### Rows of the comparison file not joined to AviList ({len(prev_log['unlinked'])})", "",
+          "Species rows with no AviList name of their own and no AviList subspecies under them "
+          "(hybrids, doubtful and extinct forms, lumps noted only in the Notes column). "
+          "Join by hand with `field = sci_prev` if needed.", ""]
+
+    def names(row):
+        return "; ".join(f"{VS_SOURCE_CODE.get(k, k)}: {clean(row[VS_COLUMNS[k][0]])}"
+                         for k in VS_LISTS + ("tif", "gaudin", "avilist")
+                         if clean(row[VS_COLUMNS[k][0]]))
+
+    def note(row):
+        text = clean(row[VS_COLUMNS["notes"][0]]) or ""
+        return text if len(text) <= 120 else text[:119] + "…"
+    L += md_table([(row[0], names(row), why, note(row)) for row, why in prev_log["unlinked"]],
+                  ["IOC 15.2 seq.", "names", "why", "notes (shortened)"])
+    if prev_log["unparsed"]:
+        L += ["", f"### Names not parsed as a binomial ({len(prev_log['unparsed'])})", ""]
+        L += md_table(prev_log["unparsed"], ["AviList species", "source", "as written"])
+    if prev_log["unused_removals"]:
+        L += ["", "### `sci_prev` override removals with no effect", ""]
+        L += [f"- {sci}: {name}" for sci, name in prev_log["unused_removals"]]
+    return L, counts
+
+
 def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings,
-                 names_log, ebird_log) -> dict:
+                 names_log, ebird_log, prev_log) -> dict:
     avi_keys = {sci_key(r["sci"]) for r in records}
     total = len(records)
     by_source = Counter(r["ru_source"] for r in records)
@@ -951,6 +1416,9 @@ def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_war
             counts[f"{rank}_ru_{s}"] = src.get(s, 0)
         counts[f"{rank}_ru_missing"] = src.get(None, 0)
 
+    prev_lines, prev_counts = prev_report(records, prev_log)
+    counts.update(prev_counts)
+
     L = ["# Build report", ""]
     L += ["## Sources", ""]
     for name, state in status.items():
@@ -975,6 +1443,8 @@ def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_war
         ("`ru_ebird` set (eBird name differs from `ru`)", counts["ru_ebird"]),
         ("`ru_ebird` suppressed by override", counts["ru_ebird_suppressed"]),
         ("`auth` with leftover initials", counts["auth_leftover_initials"]),
+        ("Species with `sci_prev` (former scientific names)", counts["sci_prev_species"]),
+        ("Species with `sci_book_prev`", counts["sci_book_prev"]),
         ("Names with mixed Cyrillic/Latin words", counts["mixed_script_names"]),
         ("Russian names shared by several species", counts["ru_duplicates"]),
         ("`ru` split into `ru` + `ru_alt`", counts["ru_split_synonyms"]),
@@ -1047,6 +1517,7 @@ def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_war
           "unless suppressed with `field = ru_ebird`, value `-` in `data/overrides.csv` "
           "(column «подавлено»).", ""]
     L += md_table(diffs, ["Scientific name", "IOC", "eBird", "ru_ebird", "подавлено"])
+    L += prev_lines
     OUT_REPORT.write_text("\n".join(L) + "\n", encoding="utf-8")
     return counts
 
@@ -1064,6 +1535,7 @@ def main() -> None:
     _test_normalise_authority()
     _test_names()
     _test_compare_key()
+    _test_prev()
 
     status = {}
     ensure_file(AVILIST_PATH, AVILIST_URL, mode, required=True)
@@ -1104,6 +1576,29 @@ def main() -> None:
     ebird_log = add_ebird_names(records, ebird)
     finalise(records)
 
+    # former scientific names
+    prev_sources = []
+    prev_log = {"unlinked": [], "unparsed": [], "stats": Counter()}
+    if ensure_file(VS_LISTS_PATH, VS_LISTS_URL, mode, required=False):
+        vs, prev_log["unlinked"], prev_log["unparsed"], vs_stats = load_vs_lists(
+            VS_LISTS_PATH, {r["sci"] for r in records})
+        prev_sources.append(vs)
+        prev_log["stats"].update(vs_stats)
+        status["IOC 15.2 vs other lists (former names)"] = (
+            f"`{VS_LISTS_PATH.relative_to(ROOT)}`, {len(vs)} species with names")
+    else:
+        status["IOC 15.2 vs other lists (former names)"] = "SKIPPED (not available)"
+    eb_prev, prev_log["ebird_status"], eb_stats = load_ebird_history(records, mode)
+    prev_sources.append(eb_prev)
+    prev_log["stats"].update(eb_stats)
+    status["eBird taxonomies 2015–2024 (former names)"] = (
+        f"{sum(not v.startswith('SKIPPED') for v in prev_log['ebird_status'].values())} of "
+        f"{len(EBIRD_HISTORY_YEARS)} versions"
+        + ("" if all(not v.startswith("SKIPPED") for v in prev_log["ebird_status"].values())
+           else ", SOME SKIPPED (not available)"))
+    prev_log["stats"].update(build_sci_prev(records, prev_sources))
+    prev_log["unused_removals"] = [(r["sci"], n) for r in records for n in r.get("_prev_del_unused", [])]
+
     # order / family Russian names
     taxa_warnings: list[str] = []
     zmmu = {}
@@ -1142,7 +1637,7 @@ def main() -> None:
 
     write_json(records, taxa)
     counts = write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings,
-                          names_log, ebird_log)
+                          names_log, ebird_log, prev_log)
 
     print(f"Wrote {OUT_JSON.relative_to(ROOT)}, {OUT_TAXA_JSON.relative_to(ROOT)}, "
           f"{OUT_DOCS_JSON.relative_to(ROOT)}, {OUT_DOCS_TAXA_JSON.relative_to(ROOT)}, "
