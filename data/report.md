@@ -317,8 +317,8 @@ Sources: ZMMU passerine list family headers (`zmmu`), Wikidata (`wikidata`), `da
 
 | Rank | Total | zmmu | wikidata | manual | missing |
 |---|---|---|---|---|---|
-| orders | 46 | 0 | 39 | 2 | 5 |
-| families | 252 | 142 | 96 | 5 | 9 |
+| orders | 46 | 0 | 39 | 7 | 0 |
+| families | 252 | 142 | 96 | 14 | 0 |
 
 ### Taxon name warnings
 
@@ -336,24 +336,10 @@ Sources: ZMMU passerine list family headers (`zmmu`), Wikidata (`wikidata`), `da
 - ZMMU header 'Zeleddoniidae' (Зеледонии) lists Zeledoniidae species; used for Zeledoniidae
 - ZMMU header 'Icteriidae' (Иктерии) not used (majority AviList family of its species: Icteridae)
 
-### Orders and families without a Russian name (14)
+### Orders and families without a Russian name (0)
 
 | Rank | Scientific name | English | Species |
 |---|---|---|---|
-| order | Eurypygiformes |  | 2 |
-| order | Steatornithiformes |  | 1 |
-| order | Nyctibiiformes |  | 7 |
-| order | Podargiformes |  | 16 |
-| order | Aegotheliformes |  | 10 |
-| family | Sarothruridae | Flufftails | 15 |
-| family | Pluvianidae | Egyptian Plover | 1 |
-| family | Oceanitidae | Southern Storm Petrels | 10 |
-| family | Semnornithidae | Prong-billed Barbet and Toucan Barbet | 2 |
-| family | Strigopidae | New Zealand Parrots | 4 |
-| family | Psittaculidae | Old World Parrots | 200 |
-| family | Onychorhynchidae | Royal Flycatchers and Allies | 7 |
-| family | Platylophidae | Jayshrike | 1 |
-| family | Salpornithidae | Spotted Creepers | 2 |
 
 ## AviList species not found in IOC (42)
 
