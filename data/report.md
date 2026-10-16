@@ -28,7 +28,7 @@
 | AviList species not in IOC (exact name) | 42 |
 | IOC species not in AviList (exact name) | 138 |
 | IOC vs eBird Russian name differs | 164 |
-| `ru_ebird` set (eBird name differs from `ru`) | 120 |
+| `ru_ebird` set (eBird name differs from `ru`) | 108 |
 | `ru_ebird` suppressed by override | 19 |
 | `auth` with leftover initials | 0 |
 | Species with `sci_prev` (former scientific names) | 5146 |
@@ -997,22 +997,22 @@ Case-insensitive comparison of the raw names. `ru` always prefers IOC; the eBird
 | Eremophila alpestris | Рогатый жаворонок, рюм | Рогатый жаворонок |  |  |
 | Calandrella cinerea | Красноголовый жаворонок | Африканский малый жаворонок | Африканский малый жаворонок |  |
 | Cisticola juncidis | Веерохвостая цистикола | Золотистая цистикола | Золотистая цистикола |  |
-| Arundinax aedon | Толстоклювая камышовка | Толстоклювая камышевка | Толстоклювая камышевка |  |
+| Arundinax aedon | Толстоклювая камышовка | Толстоклювая камышевка |  |  |
 | Iduna pallida | Бледная бормотушка | Бледная пересмешка | Бледная пересмешка |  |
-| Acrocephalus schoenobaenus | камышовка-барсучок | Камышевка-барсучок | Камышевка-барсучок |  |
-| Acrocephalus bistrigiceps | Чернобровая камышовка | Пестроголовая камышевка | Пестроголовая камышевка |  |
-| Acrocephalus sorghophilus | Просяная камышовка | Просяная камышевка | Просяная камышевка |  |
-| Acrocephalus paludicola | Вертлявая камышовка | Вертлявая камышевка | Вертлявая камышевка |  |
-| Acrocephalus melanopogon | Тонкоклювая камышовка | Тонкоклювая камышевка | Тонкоклювая камышевка |  |
-| Acrocephalus agricola | Индийская камышовка | Индийская камышевка | Индийская камышевка |  |
-| Acrocephalus tangorum | Маньчжурская камышовка | Маньчжурская камышевка | Маньчжурская камышевка |  |
-| Acrocephalus dumetorum | Садовая камышовка | Садовая камышевка | Садовая камышевка |  |
-| Acrocephalus orinus | Большеклювая камышовка | Большеклювая камышевка | Большеклювая камышевка |  |
-| Acrocephalus palustris | Болотная камышовка | Болотная камышевка | Болотная камышевка |  |
-| Acrocephalus scirpaceus | Тростниковая камышовка | Тростниковая камышевка | Тростниковая камышевка |  |
-| Acrocephalus arundinaceus | Дроздовидная камышовка | Дроздовидная камышевка | Дроздовидная камышевка |  |
-| Acrocephalus orientalis | Восточная камышовка | Восточная дроздовидная камышевка | Восточная дроздовидная камышевка |  |
-| Acrocephalus stentoreus | Голосистая камышовка | Южная дроздовидная камышевка | Южная дроздовидная камышевка |  |
+| Acrocephalus schoenobaenus | камышовка-барсучок | Камышевка-барсучок |  |  |
+| Acrocephalus bistrigiceps | Чернобровая камышовка | Пестроголовая камышевка | Пестроголовая камышовка |  |
+| Acrocephalus sorghophilus | Просяная камышовка | Просяная камышевка |  |  |
+| Acrocephalus paludicola | Вертлявая камышовка | Вертлявая камышевка |  |  |
+| Acrocephalus melanopogon | Тонкоклювая камышовка | Тонкоклювая камышевка |  |  |
+| Acrocephalus agricola | Индийская камышовка | Индийская камышевка |  |  |
+| Acrocephalus tangorum | Маньчжурская камышовка | Маньчжурская камышевка |  |  |
+| Acrocephalus dumetorum | Садовая камышовка | Садовая камышевка |  |  |
+| Acrocephalus orinus | Большеклювая камышовка | Большеклювая камышевка |  |  |
+| Acrocephalus palustris | Болотная камышовка | Болотная камышевка |  |  |
+| Acrocephalus scirpaceus | Тростниковая камышовка | Тростниковая камышевка |  |  |
+| Acrocephalus arundinaceus | Дроздовидная камышовка | Дроздовидная камышевка |  |  |
+| Acrocephalus orientalis | Восточная камышовка | Восточная дроздовидная камышевка | Восточная дроздовидная камышовка |  |
+| Acrocephalus stentoreus | Голосистая камышовка | Южная дроздовидная камышевка | Южная дроздовидная камышовка |  |
 | Helopsaltes fasciolatus | Таёжный сверчок | Таежный сверчок |  |  |
 | Progne subis | Пурпурная ласточка | Большая ласточка | Большая ласточка |  |
 | Hirundo rustica | Деревенская ласточка, ласточка-касатка | Деревенская ласточка |  |  |
@@ -1020,8 +1020,8 @@ Case-insensitive comparison of the raw names. `ru` always prefers IOC; the eBird
 | Cecropis daurica | Рыжепоясничная ласточка | Восточная рыжепоясничная ласточка | Восточная рыжепоясничная ласточка |  |
 | Petrochelidon pyrrhonota | Светлолобая ласточка | Белолобая ласточка | Белолобая ласточка |  |
 | Leptopoecile elegans | Элегантная синичка | Хохлатая расписная синичка | Хохлатая расписная синичка |  |
-| Horornis diphone | Бамбуковая широкохвостка | Бамбуковая камышевка | Бамбуковая камышевка |  |
-| Horornis canturians | Короткокрылая широкохвостка | Короткокрылая камышевка | Короткокрылая камышевка |  |
+| Horornis diphone | Бамбуковая широкохвостка | Бамбуковая камышевка | Бамбуковая камышовка |  |
+| Horornis canturians | Короткокрылая широкохвостка | Короткокрылая камышевка | Короткокрылая камышовка |  |
 | Phylloscopus humei | Тусклая зарничка | Тусклая пеночка | Тусклая пеночка |  |
 | Phylloscopus subviridis | Кашмирская зарничка | Пеночка гималайская | Пеночка гималайская |  |
 | Phylloscopus proregulus | Корольковая пеночка, корольковая зарничка | Корольковая пеночка |  |  |

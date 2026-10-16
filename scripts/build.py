@@ -1204,10 +1204,29 @@ def normalise_names(records) -> dict[str, list]:
     return log_
 
 
+# Purely orthographic variants treated as equal when comparing with eBird:
+# (variant, accepted) pairs of case-folded substrings; the variant is
+# rewritten to the accepted spelling (Volkov & Koblik: «камышовка»).
+SPELLING_EQUIV = [("камышевк", "камышовк")]
+
+
+def apply_spelling_equiv(name: str) -> str:
+    """Rewrite SPELLING_EQUIV variants in a display name to the accepted
+    spelling, keeping the case of the first letter of each occurrence."""
+    for variant, accepted in SPELLING_EQUIV:
+        name = re.sub(variant, lambda m: (accepted[0].upper() if m.group()[0].isupper()
+                                          else accepted[0]) + accepted[1:],
+                      name, flags=re.IGNORECASE)
+    return name
+
+
 def ru_compare_key(name: str) -> str:
     """Normalised form for comparing Russian names: part before the first comma,
-    case-folded, ё = е, spaces and hyphens ignored."""
+    case-folded, ё = е, spaces and hyphens ignored, SPELLING_EQUIV variants
+    rewritten to one spelling."""
     name = name.split(",")[0].casefold().replace("ё", "е")
+    for variant, accepted in SPELLING_EQUIV:
+        name = name.replace(variant, accepted)
     return re.sub(r"[\s\-\u2010-\u2015]+", "", name)
 
 
@@ -1222,14 +1241,21 @@ def add_ebird_names(records, ebird) -> tuple[list, list]:
         if rec.pop("_ebird_suppressed", False):
             (suppressed if differs else unused).append((rec["sci"], rec["ru"], name))
             differs = False
-        rec["ru_ebird"] = name if differs else None
+        rec["ru_ebird"] = apply_spelling_equiv(name) if differs else None
     return suppressed, unused
 
 
 def _test_compare_key() -> None:
     assert ru_compare_key("Белощекий бюль-бюль") == ru_compare_key("Белощёкий бюльбюль")
     assert ru_compare_key("Хохлатый фазан, чир") == ru_compare_key("хохлатый  фазан")
-    assert ru_compare_key("Камышовка") != ru_compare_key("Камышевка")
+    assert ru_compare_key("Камышовка") == ru_compare_key("Камышевка")
+    assert ru_compare_key("Тростниковая камышевка") == ru_compare_key("Тростниковая камышовка")
+    assert ru_compare_key("Камышевка-барсучок") == ru_compare_key("Камышовка барсучок")
+    assert ru_compare_key("КАМЫШЕВКИ") == ru_compare_key("камышовки")
+    assert ru_compare_key("Камышевка") != ru_compare_key("Камышница")
+    assert apply_spelling_equiv("Бамбуковая камышевка") == "Бамбуковая камышовка"
+    assert apply_spelling_equiv("Камышевка-барсучок") == "Камышовка-барсучок"
+    assert apply_spelling_equiv("Южная дроздовидная камышевка") == "Южная дроздовидная камышовка"
 
 
 def finalise(records):
