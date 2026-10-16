@@ -163,7 +163,7 @@
     #set align(center)
     #set par(justify: false)
     #v(4mm)
-    #text(size: 9pt, tracking: 0.08em)[\[СОСТАВИТЕЛИ\]]
+    #text(size: 9pt, tracking: 0.08em)[\[АВТОРЫ\]]
     #v(1fr)
     #text(size: 26pt, weight: "bold")[Птицы мира]
     #v(5mm)
@@ -218,7 +218,7 @@
     #v(1fr)
     #grid(columns: (1fr, 1fr), column-gutter: 2em,
       align(bottom)[ISBN \[978-5-…\]],
-      [© \[Составители\], #meta.year\ © AviList Core Team, 2026 (CC BY 4.0), систематика\ © \[Издательство\], оформление, #meta.year])
+      [© \[Авторы\], #meta.year\ © AviList Core Team, 2026 (CC BY 4.0), систематика\ © \[Издательство\], оформление, #meta.year])
     #v(3mm)
   ]
 ]
@@ -230,7 +230,7 @@
     #set align(center)
     #set par(justify: false)
     #v(4mm)
-    #text(size: 9pt, tracking: 0.08em)[\[COMPILERS\]]
+    #text(size: 9pt, tracking: 0.08em)[\[AUTHORS\]]
     #v(1fr)
     #text(size: 24pt, weight: "bold", style: "italic")[Birds of the World]
     #v(5mm)
@@ -532,7 +532,7 @@
     #text(size: 9.5pt, weight: "bold")[Птицы мира]\
     #text(size: 9pt)[Русские, латинские и английские названия видов]
     #v(2mm)
-    Составители \[…\]\
+    Авторы \[…\]\
     Редактор \[…\] · Корректор \[…\]\
     Компьютерная вёрстка \[…\]
     #v(3mm)
@@ -597,7 +597,7 @@
       T.taxa_fixes.map(r => (r.sci, r.before, r.after, r.why)).flatten())
     #if T.taxa_formed.len() > 0 {
       v(2mm)
-      emph[Названия отрядов и семейств, образованные составителем (обоснование — из файла правок):]
+      emph[Названия отрядов и семейств, образованные агентом (обоснование — из файла правок):]
       v(1mm)
       ttable((32mm, 34mm, 1fr), ([Таксон], [Название], [Обоснование]),
         T.taxa_formed.map(r => (r.sci, r.after, r.why)).flatten())
@@ -634,7 +634,7 @@
       rows, al: (right, left, left)))
   ]
 
-  #tsection([д) Синонимы, выделенные из источника], note: in-full(T.full_syn, T.syn.len()))[
+  #tsection([д) Вторые названия, записанные в источнике через запятую], note: [В списке Волкова и Коблика у этих видов указано два названия; первое принято основным, второе попадает только в алфавитный указатель. #in-full(T.full_syn, T.syn.len())])[
     #ttable((auto, auto, 1fr), ([№], [Основное название], [Альтернативное]),
       T.syn.map(r => (tnum(r.n), r.ru, r.alt)).flatten(), al: (right, left, left))
   ]

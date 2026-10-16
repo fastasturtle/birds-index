@@ -981,9 +981,11 @@ def c2_tables(species, taxa, sp, sel, full) -> dict:
                "latin": bool(lat_c.search(before)), "why": override_reason(o["sci"], o["note"])}
         if o["sci"] in by_sci:
             fixes.append(row)
-        elif ("составител" in o["note"] or "Formed by compiler" in o["note"]
+        elif ("агентом" in o["note"] or "составител" in o["note"]
+              or "Formed by agent" in o["note"] or "Formed by compiler" in o["note"]
               or "ru.wikipedia" in o["note"]):
-            # names of orders / families formed or chosen by the compiler: the
+            # names of orders / families formed or chosen by the agent (older notes
+            # say «составителем» / "compiler"): the
             # note from overrides.csv is shown as is, without URLs
             note = re.sub(r"\s*\(?https?://\S+?\)?(?=[\s;,)]|$)", "", o["note"]).replace("(: ", "(")
             note = re.sub(r"ru\.wikipedia:\s*(?=[,;)])", "ru.wikipedia", note)
