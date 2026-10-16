@@ -9,6 +9,11 @@ of sources, matched by exact (normalised) scientific name:
     3. Wikidata P1843 (taxon common name, ru)   -> ru_source "wikidata"
     4. data/overrides.csv (applied last)        -> ru_source "manual"
 
+Then the Russian name is normalised: synonyms ("Хохлатый фазан, чир",
+"Гуменник (лесной гуменник)") go from `ru` to the list `ru_alt`, and index
+fields are computed: `ru_head` (leading noun), `ru_book` (book spelling with a
+lower-case first letter), `en_head` (last word of the English name).
+
 It also writes data/taxa.json: orders and families (in systematic order) with
 Russian names from the ZMMU passerine spreadsheet (family header rows) ->
 "zmmu", Wikidata (P1843 / ru label of the order or family item) -> "wikidata",
@@ -74,8 +79,12 @@ EXTINCT_MAP = {
 
 FIELDS = [
     "id", "seq", "order", "family", "family_en", "sci", "authority", "auth", "en",
-    "ru", "ru_source", "ru_status", "ioc_sci", "extinct", "iucn",
+    "ru", "ru_alt", "ru_head", "ru_head_source", "ru_book", "en_head",
+    "ru_source", "ru_status", "ioc_sci", "extinct", "iucn",
 ]
+# Fields computed by normalise_names / add_index_fields; only ru_alt and
+# ru_head may be given in overrides.csv (handled specially).
+DERIVED_FIELDS = {"ru_head_source", "ru_book", "en_head"}
 
 
 # --------------------------------------------------------------------------- helpers
@@ -228,6 +237,11 @@ def load_avilist(path: Path) -> list[dict]:
             "auth": normalise_authority(clean(row.get("Authority"))),
             "en": clean(row.get("English_name_AviList")),
             "ru": None,
+            "ru_alt": [],
+            "ru_head": None,
+            "ru_head_source": None,
+            "ru_book": None,
+            "en_head": None,
             "ru_source": None,
             "ru_status": "missing",
             "ioc_sci": None,  # exact matching only in this version
@@ -586,8 +600,16 @@ def apply_overrides(records, overrides, taxon_keys=frozenset()) -> list[str]:
         if rec is None:
             warnings.append(f"override for unknown species {ov['sci']!r}")
             continue
-        if field not in FIELDS or field in ("ru_source", "ru_status"):
+        if field not in FIELDS or field in ("ru_source", "ru_status") or field in DERIVED_FIELDS:
             warnings.append(f"override with unsupported field {field!r} for {ov['sci']!r}")
+            continue
+        if field == "ru_alt":
+            # "a; b" -> accumulated on top of the automatic alternatives
+            rec.setdefault("_alt_manual", []).extend(
+                cap_first(x) for x in (clean(v) for v in (value or "").split(";")) if x)
+            continue
+        if field == "ru_head":
+            rec["_head_manual"] = value
             continue
         if field == "seq":
             value = int(value) if value else rec["seq"]
@@ -595,6 +617,189 @@ def apply_overrides(records, overrides, taxon_keys=frozenset()) -> list[str]:
         if field == "ru":
             rec["ru_source"] = "manual" if value else None
     return warnings
+
+
+# --------------------------------------------------------------------------- name normalisation
+
+def cap_first(text: str) -> str:
+    return text[:1].upper() + text[1:] if text else text
+
+
+LATIN = re.compile(r"[A-Za-z]")
+MIXED_WORD = re.compile(r"\S+")
+
+
+def mixed_script_words(name: str | None) -> list[str]:
+    """Words mixing Cyrillic and Latin letters (look-alike typos: "Cкоморох")."""
+    return [w for w in MIXED_WORD.findall(name or "")
+            if CYRILLIC.search(w) and LATIN.search(w)]
+
+
+# "Гуменник (лесной гуменник)": the parenthesised part is taken as an
+# alternative name only if it looks like a name, not like a comment.
+PAREN = re.compile(r"^(?P<main>[^()]+?)\s*\((?P<alt>[^()]+)\)\s*$")
+PAREN_NOT_NAME = re.compile(r"[A-Za-z0-9=?.:;]|\b(?:вид|подвид|подвиды|форма|группа|включая|"
+                            r"кроме|см|ранее|прежде|s\.l|возможно)\b", re.IGNORECASE)
+ALT_SPLIT = re.compile(r"\s*,\s*|\s+/\s+|\s+или\s+")
+
+
+def split_ru(name: str) -> tuple[str, list[str], str | None]:
+    """Split a Russian name with synonyms into (main, alternatives, problem).
+
+    "Хохлатый фазан, чир" -> ("Хохлатый фазан", ["Чир"]); separators: comma,
+    " / ", " или ". "Гуменник (лесной гуменник)" -> ("Гуменник", ["Лесной
+    гуменник"]). A parenthesis that does not look like a name (Latin, digits,
+    punctuation, words such as "подвид", more than four words) is left as is
+    and reported via `problem`.
+    """
+    alts: list[str] = []
+    m = PAREN.match(name)
+    if m:
+        inner = clean(m.group("alt"))
+        if PAREN_NOT_NAME.search(inner) or len(inner.split()) > 4:
+            return name, [], f"parenthesis kept: {name!r}"
+        name, alts = clean(m.group("main")), [inner]
+    elif "(" in name or ")" in name:
+        return name, [], f"parenthesis kept: {name!r}"
+    parts = [p for p in (clean(x) for x in ALT_SPLIT.split(name)) if p]
+    return cap_first(parts[0]), [cap_first(p) for p in parts[1:] + alts], None
+
+
+# Adjective endings, incl. participles in -ся ("кланяющаяся") and possessive
+# adjectives in -ья/-ье/-ьи/-ий ("сорочья", "лисья").
+ADJ_END = re.compile(r"(?:ый|ий|ой|ая|яя|ое|ее|ые|ие|ья|ье|ьи|ьё)(?:ся)?$")
+# Possessive adjectives: "Стеллеров", "Бэрова", "дарвинов", "буйволов".
+POSSESSIVE_END = re.compile(r"(?:ов|ова|ово|ев|ева|ево|ёв|ёва|ин|ина|ино)$")
+# Possessives formed from common nouns: lower case in book spelling.
+COMMON_POSSESSIVES = {"крокодилов", "фараонов", "буйволов"}
+
+
+def ru_head(name: str | None) -> tuple[str | None, bool]:
+    """Leading word ("nest") of a Russian species name, and a doubt flag.
+
+    Words before the first noun are dropped if they are adjectives (endings
+    -ый/-ий/-ой/-ая/-яя/-ое/-ее/-ые/-ие, -ья/-ье, participles in -ся) or
+    possessive adjectives (-ов(а)/-ев(а)/-ин(а)) followed by a lower-case word
+    ("Стеллеров морской орёл", "буйволов ткач"; but "Пингвин Адели"). The first
+    remaining word is the head; everything after it is a genitive or an
+    apposition ("гусь Росса", "фазан микадо", "конёк пуны"). Hyphenated words
+    count as one ("лебедь-шипун"). Flagged as doubtful: every word looks like
+    an adjective (the last word is taken), a lower-case word follows the head
+    (apposition, or a typo in an adjective), or a capitalised head after
+    other words. The head is returned with a lower-case first letter.
+    """
+    if not name:
+        return None, False
+    words = name.split()
+    head, doubtful = words[-1], True
+    for i, w in enumerate(words):
+        base = w.lower()
+        # an adjective is always followed by a lower-case word; before a
+        # capitalised genitive the word is a noun ("Козодой Пригожина")
+        if i + 1 < len(words) and words[i + 1][:1].islower() and (
+                ADJ_END.search(base) or POSSESSIVE_END.search(base)):
+            continue
+        head = w
+        # doubtful: a capitalised head after other words, or a lower-case
+        # word after the head (apposition such as "конёк пуны", or a typo)
+        doubtful = (i > 0 and w[:1].isupper()) or (
+            i + 1 < len(words) and words[i + 1][:1].islower())
+        break
+    return head[:1].lower() + head[1:], doubtful
+
+
+def en_head(name: str | None) -> str | None:
+    """Last word of the English name (a hyphenated word is kept whole)."""
+    if not name:
+        return None
+    return name.split()[-1]
+
+
+def ru_book(name: str | None, en: str | None) -> tuple[str | None, bool]:
+    """Russian name in book spelling: first letter lower case, unless the first
+    word is a possessive adjective formed from a proper name ("Стеллерова
+    сойка", "Магелланов гусь"): a capitalised word in -ов(а)/-ев(а)/-ин(а)
+    followed by a lower-case word ("Пингвин Адели" is not one). The English
+    "'s" ("Steller's Jay") confirms it; without it the capital is kept unless
+    the word is a known possessive of a common noun (COMMON_POSSESSIVES:
+    "Крокодилов сторож", "Фараонов филин"). Other words are unchanged
+    ("гусь Росса"). Returns (name, capital kept)."""
+    if not name:
+        return None, False
+    words = name.split()
+    first = words[0].lower()
+    if (len(words) > 1 and words[0][:1].isupper() and words[1][:1].islower()
+            and POSSESSIVE_END.search(first) and not ADJ_END.search(first)
+            and ("'s" in (en or "") or first not in COMMON_POSSESSIVES)):
+        return name, True
+    return name[:1].lower() + name[1:], False
+
+
+def _test_names() -> None:
+    assert split_ru("Хохлатый фазан, чир") == ("Хохлатый фазан", ["Чир"], None)
+    assert split_ru("Гуменник (лесной гуменник)") == ("Гуменник", ["Лесной гуменник"], None)
+    assert split_ru("Синьга") == ("Синьга", [], None)
+    assert split_ru("Птица (подвид X)")[2]
+    for name, want in {"Белолобый гусь": "гусь", "Лебедь-шипун": "лебедь-шипун",
+                       "Гусь Росса": "гусь", "Малая канадская казарка": "казарка",
+                       "Эму": "эму", "Пеганка-раджа": "пеганка-раджа",
+                       "Стеллеров морской орёл": "орёл"}.items():
+        got = ru_head(name)
+        assert got == (want, False), f"ru_head({name!r}) = {got!r}, want {want!r}"
+    assert en_head("Eastern Whip-poor-will") == "Whip-poor-will"
+    assert en_head("Emu") == "Emu"
+    assert en_head("Florida Scrub-Jay") == "Scrub-Jay"
+    assert ru_book("Белолобый гусь", "Greater White-fronted Goose") == ("белолобый гусь", False)
+    assert ru_book("Гусь Росса", "Ross's Goose") == ("гусь Росса", False)
+    assert ru_book("Стеллеров морской орёл", "Steller's Sea Eagle") == ("Стеллеров морской орёл", True)
+    assert ru_book("Розовый пеликан", "Great White Pelican")[1] is False
+    assert ru_book("Магелланов гусь", "Upland Goose") == ("Магелланов гусь", True)
+    assert ru_book("Крокодилов сторож", "Egyptian Plover") == ("крокодилов сторож", False)
+    assert ru_book("Пингвин Адели", "Adelie Penguin") == ("пингвин Адели", False)
+    for name, want in {"Бурая кланяющаяся крачка": "крачка",
+                       "Сорочья кукушка": "кукушка", "Красноклювый буйволов ткач": "ткач",
+                       "Пингвин Адели": "пингвин", "Козодой Пригожина": "козодой"}.items():
+        assert ru_head(name) == (want, False), (name, ru_head(name))
+    assert ru_head("Фазан микадо") == ("фазан", True)
+
+
+def normalise_names(records) -> dict[str, list]:
+    """Split synonyms out of `ru` into `ru_alt`, merge manual ru_alt, compute
+    ru_head / ru_book / en_head. Returns lists for the build report."""
+    log_ = {"split": [], "paren_kept": [], "mixed": [], "head_doubtful": [],
+            "book_capital": []}
+    for rec in records:
+        alts: list[str] = []
+        if rec["ru"]:
+            main, auto, problem = split_ru(rec["ru"])
+            if problem:
+                log_["paren_kept"].append((rec["sci"], rec["ru"]))
+            elif auto:
+                log_["split"].append((rec["sci"], rec["ru"], main, "; ".join(auto),
+                                      rec["ru_source"]))
+            rec["ru"] = main
+            alts = auto
+        for a in alts + rec.pop("_alt_manual", []):
+            if a not in rec["ru_alt"] and a != rec["ru"]:
+                rec["ru_alt"].append(a)
+        for name in [rec["ru"], rec["en"], *rec["ru_alt"]]:
+            if mixed_script_words(name):
+                log_["mixed"].append((rec["sci"], name))
+        manual = rec.pop("_head_manual", None)
+        if manual and rec["ru"]:
+            rec["ru_head"], rec["ru_head_source"] = manual, "manual"
+        elif rec["ru"]:
+            rec["ru_head"], doubtful = ru_head(rec["ru"])
+            rec["ru_head_source"] = "auto"
+            if doubtful:
+                log_["head_doubtful"].append((rec["sci"], rec["ru"], rec["ru_head"]))
+        else:
+            rec["ru_head"] = rec["ru_head_source"] = None
+        rec["ru_book"], kept = ru_book(rec["ru"], rec["en"])
+        if kept:
+            log_["book_capital"].append((rec["sci"], rec["ru"], rec["en"]))
+        rec["en_head"] = en_head(rec["en"])
+    return log_
 
 
 def finalise(records):
@@ -626,7 +831,24 @@ def md_table(rows, headers) -> list[str]:
     return out
 
 
-def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings) -> dict:
+def duplicate_ru(records) -> list[tuple[str, list[dict]]]:
+    """Russian names (case-insensitive) shared by several species."""
+    by_name: dict[str, list[dict]] = {}
+    for r in records:
+        if r["ru"]:
+            by_name.setdefault(r["ru"].casefold(), []).append(r)
+    return [(recs[0]["ru"], recs) for recs in by_name.values() if len(recs) > 1]
+
+
+def alt_clashes(records) -> list[tuple[str, str, str]]:
+    """ru_alt entries equal to the main Russian name of another species."""
+    main = {r["ru"].casefold(): r["sci"] for r in records if r["ru"]}
+    return [(r["sci"], a, main[a.casefold()]) for r in records for a in r["ru_alt"]
+            if a.casefold() in main and main[a.casefold()] != r["sci"]]
+
+
+def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings,
+                 names_log) -> dict:
     avi_keys = {sci_key(r["sci"]) for r in records}
     total = len(records)
     by_source = Counter(r["ru_source"] for r in records)
@@ -658,6 +880,22 @@ def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_war
         "auth_leftover_initials": sum(1 for r in records
                                       if r["auth"] and LEFTOVER_INITIALS.search(r["auth"])),
     }
+    dups = duplicate_ru(records)
+    clashes = alt_clashes(records)
+    heads = Counter(r["ru_head"] for r in records if r["ru_head"])
+    counts.update({
+        "ru_split_synonyms": len(names_log["split"]),
+        "ru_with_alt": sum(1 for r in records if r["ru_alt"]),
+        "ru_alt_total": sum(len(r["ru_alt"]) for r in records),
+        "ru_paren_kept": len(names_log["paren_kept"]),
+        "mixed_script_names": len(names_log["mixed"]),
+        "ru_duplicates": len(dups),
+        "ru_alt_clashes": len(clashes),
+        "ru_heads": len(heads),
+        "ru_head_manual": sum(1 for r in records if r["ru_head_source"] == "manual"),
+        "ru_head_doubtful": len(names_log["head_doubtful"]),
+        "ru_book_capital_kept": len(names_log["book_capital"]),
+    })
     for rank in ("orders", "families"):
         src = Counter(t["ru_source"] for t in taxa[rank])
         counts[f"{rank}"] = len(taxa[rank])
@@ -687,7 +925,47 @@ def write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_war
         ("IOC species not in AviList (exact name)", counts["ioc_not_in_avilist"]),
         ("IOC vs eBird Russian name differs", counts["ioc_ebird_diff"]),
         ("`auth` with leftover initials", counts["auth_leftover_initials"]),
+        ("Names with mixed Cyrillic/Latin words", counts["mixed_script_names"]),
+        ("Russian names shared by several species", counts["ru_duplicates"]),
+        ("`ru` split into `ru` + `ru_alt`", counts["ru_split_synonyms"]),
+        ("Species with `ru_alt`", counts["ru_with_alt"]),
+        ("`ru_alt` names in total", counts["ru_alt_total"]),
+        ("`ru_alt` equal to another species' `ru`", counts["ru_alt_clashes"]),
+        ("Distinct `ru_head`", counts["ru_heads"]),
+        ("`ru_head` doubtful (auto)", counts["ru_head_doubtful"]),
+        ("`ru_head` manual", counts["ru_head_manual"]),
+        ("`ru_book` with the capital kept", counts["ru_book_capital_kept"]),
     ], ["Metric", "Count"])
+
+    L += ["", "## Russian names: checks and index fields", ""]
+    L += ["", f"### Words mixing Cyrillic and Latin letters ({len(names_log['mixed'])})", "",
+          "Look-alike letters (e.g. Latin C in \"Cкоморох\"); fix in `data/overrides.csv`.", ""]
+    L += md_table(names_log["mixed"], ["Scientific name", "Name"])
+    L += ["", f"### Russian names shared by several species ({len(dups)})", "",
+          "Not fixed automatically; resolve in `data/overrides.csv` when the right name is known.", ""]
+    L += md_table([(name, "; ".join(f"*{r['sci']}* ({r['en']}, {r['ru_source']})" for r in recs))
+                   for name, recs in dups], ["Russian name", "Species (English, source)"])
+    L += ["", f"### Synonyms split out of `ru` ({len(names_log['split'])})", "",
+          "Separators: comma, \" / \", \" или \", parentheses. The first part stays in `ru`, "
+          "the rest go to `ru_alt` (first letter capitalised).", ""]
+    L += md_table(names_log["split"], ["Scientific name", "Source name", "ru", "ru_alt", "ru_source"])
+    L += ["", f"### Parentheses left in `ru` ({len(names_log['paren_kept'])})", "",
+          "The parenthesis does not look like a name (comment, Latin, digits); not split.", ""]
+    L += md_table(names_log["paren_kept"], ["Scientific name", "ru"])
+    L += ["", f"### `ru_alt` equal to another species' `ru` ({len(clashes)})", ""]
+    L += md_table(clashes, ["Scientific name", "ru_alt", "is `ru` of"])
+    L += ["", "### Top 50 `ru_head` (index nests)", ""]
+    L += md_table(heads.most_common(50), ["ru_head", "Species"])
+    L += ["", f"### Doubtful `ru_head` ({len(names_log['head_doubtful'])})", "",
+          "All-adjective names, a lower-case word after the head (apposition such as "
+          "\"конёк пуны\" or a typo), or a capitalised head after other words. "
+          "Fix systematic errors in `ru_head()`, single ones with `field = ru_head` in overrides.", ""]
+    L += md_table(names_log["head_doubtful"], ["Scientific name", "ru", "ru_head"])
+    L += ["", f"### `ru_book` with the capital kept ({len(names_log['book_capital'])})", "",
+          "First word is a possessive adjective from a proper name.", ""]
+    L += md_table([(sci, ru, en, "yes" if "'s" in (en or "") else "")
+                   for sci, ru, en in names_log["book_capital"]],
+                  ["Scientific name", "ru", "English", "English has 's"])
 
     L += ["", "## Orders and families: Russian names", "",
           "Sources: ZMMU passerine list family headers (`zmmu`), Wikidata (`wikidata`), "
@@ -730,6 +1008,7 @@ def main() -> None:
     mode = "offline" if args.offline else "fetch" if args.fetch else "default"
     log(f"mode: {mode}")
     _test_normalise_authority()
+    _test_names()
 
     status = {}
     ensure_file(AVILIST_PATH, AVILIST_URL, mode, required=True)
@@ -766,6 +1045,7 @@ def main() -> None:
     taxon_keys = {sci_key(t["sci"]) for t in taxa["orders"] + taxa["families"]}
     species_keys = {sci_key(r["sci"]) for r in records}
     warnings = apply_overrides(records, overrides, taxon_keys)
+    names_log = normalise_names(records)
     finalise(records)
 
     # order / family Russian names
@@ -805,7 +1085,8 @@ def main() -> None:
                if sci_key(ov["sci"]) in taxon_keys and sci_key(ov["sci"]) not in species_keys])
 
     write_json(records, taxa)
-    counts = write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings)
+    counts = write_report(records, ioc, ebird, wikidata, status, warnings, taxa, taxa_warnings,
+                          names_log)
 
     print(f"Wrote {OUT_JSON.relative_to(ROOT)}, {OUT_TAXA_JSON.relative_to(ROOT)}, "
           f"{OUT_DOCS_JSON.relative_to(ROOT)}, {OUT_DOCS_TAXA_JSON.relative_to(ROOT)}, "
