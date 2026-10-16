@@ -273,6 +273,20 @@ def apos(t: str | None) -> str | None:
     return t.replace("'", "\u2019") if t else t
 
 
+ET_AL_FROM = 4   # four or more authors: «Harrison et al., 2013»
+
+
+def et_al(auth: str) -> str:
+    """«(Bolton, Smith, Gómez-Díaz & Friesen, 2008)» -> «(Bolton et al., 2008)»."""
+    m = re.match(r"^(\(?)(.*), (\d{4})(\)?)$", auth)
+    if not m:
+        return auth
+    names = re.split(r", | & ", m.group(2))
+    if len(names) < ET_AL_FROM:
+        return auth
+    return f"{m.group(1)}{names[0]} et al., {m.group(3)}{m.group(4)}"
+
+
 AUTH_LONG = 22   # characters: a chunk longer than this may break between its words
 
 
@@ -285,7 +299,7 @@ def auth_chunks(auth: str | None) -> list[str]:
     «(Du Bus de Gisignies, 1847)») may also break between its own words."""
     if not auth:
         return []
-    auth = apos(auth)
+    auth = apos(et_al(auth))
     chunks: list[str] = []
     for i, part in enumerate(auth.split(" & ")):
         names = part.split(", ")
@@ -409,12 +423,12 @@ def c2_idx_ru(sel, sp, orders, families) -> list[dict]:
                 for (d, alt), nums in defs]
         units.append({"key": head_sort_key(head), "hw": head, "lines": lines, "nest": len(lines) > 1})
     for o in orders:
-        if o["ru"]:
+        if o["ru"] and o["a"] != o["b"]:      # a one-species order would repeat its species
             name = o["ru"].lower()
             units.append({"key": head_sort_key(name), "hw": name, "nest": False,
                           "lines": [[[name, ""], [" " + (f"{o['a']}{RDASH}{o['b']}" if o['a'] != o['b'] else str(o['a'])), ""]]]})
     for f in families.values():
-        if f["ru"]:
+        if f["ru"] and f["a"] != f["b"]:      # a one-species family would repeat its species
             name = f["ru"].lower()
             rng = f"{f['a']}{RDASH}{f['b']}" if f["a"] != f["b"] else str(f["a"])
             units.append({"key": head_sort_key(name), "hw": name, "nest": False,
@@ -445,10 +459,45 @@ def c2_idx_en(sel, sp, families) -> list[dict]:
         units.append({"key": en_key(head), "hw": head, "kind": "run",
                       "head": head, "nums": nest["nums"], "items": items})
     for f in families.values():
-        if f["en"]:
-            rng = f"{f['a']}{RDASH}{f['b']}" if f["a"] != f["b"] else str(f["a"])
+        if f["en"] and f["a"] != f["b"]:
+            rng = f"{f['a']}{RDASH}{f['b']}"
             units.append({"key": en_key(f["en"]), "hw": f["en"].split()[0].rstrip(","), "kind": "plain",
                           "lines": [[[f["en"], ""], [" " + rng, ""]]], "nest": False})
+    units.sort(key=lambda u: u["key"])
+    for u in units:
+        u["letter"] = en_letter(u["hw"])
+    return units
+
+
+def c2_idx_en_col(sel, sp, families) -> list[dict]:
+    """English index set in a column like the Russian one (alternative to the
+    run-in nests): «Goose» / «— Bar-headed 42» / «— Emperor 43»; one line per
+    name, a one-name nest on one line («Kagu 1234», «Emu Common 5»)."""
+    nests: dict[str, dict] = {}
+    for r, s in zip(sel, sp):
+        if not s["en"]:
+            continue
+        head = s["en"].split()[-1]
+        d = s["en"][: -len(head)].strip()
+        nest = nests.setdefault(head, {"nums": [], "items": []})
+        (nest["items"].append((d, s["n"])) if d else nest["nums"].append(s["n"]))
+    units = []
+    for head, nest in nests.items():
+        items = sorted(nest["items"], key=lambda it: (en_key(it[0]), it[1]))
+        hr = [[head, "b"]]
+        nums = [[NBSP + ", ".join(map(str, nest["nums"])), ""]] if nest["nums"] else []
+        if not items:
+            lines = [hr + nums]
+        elif not nest["nums"] and len(items) == 1:
+            d, n = items[0]
+            lines = [hr + [[" " + d.replace(" ", NBSP) + NBSP + str(n), ""]]]
+        else:
+            lines = [hr + nums] + [[["—" + NBSP + d.replace(" ", NBSP) + NBSP + str(n), ""]] for d, n in items]
+        units.append({"key": en_key(head), "hw": head, "kind": "col", "lines": lines, "nest": len(lines) > 1})
+    for f in families.values():
+        if f["en"] and f["a"] != f["b"]:
+            units.append({"key": en_key(f["en"]), "hw": f["en"].split()[0].rstrip(","), "kind": "plain",
+                          "lines": [[[f["en"], ""], [" " + f"{f['a']}{RDASH}{f['b']}", ""]]], "nest": False})
     units.sort(key=lambda u: u["key"])
     for u in units:
         u["letter"] = en_letter(u["hw"])
@@ -474,13 +523,27 @@ def c2_idx_sci(sel, sp, orders, families) -> list[dict]:
     for g, ns in genera.items():
         units.append({"key": (lat_key(g), 0, ""), "hw": g, "nest": False,
                       "lines": [[[g, "bi"], [" " + num_range(ns), ""]]]})
-    for o in orders:
-        units.append({"key": (lat_key(o["sci"]), 0, "~"), "hw": o["sci"], "nest": False,
-                      "lines": [[[o["sci"].upper(), ""], [" " + num_range(list(range(o["a"], o["b"] + 1))), ""]]]})
-    for f in families.values():
-        units.append({"key": (lat_key(f["sci"]), 0, "~"), "hw": f["sci"], "nest": False,
-                      "lines": [[[f["sci"].upper(), ""], [" " + num_range(list(range(f["a"], f["b"] + 1))), ""]]]})
+    # families and orders: small capitals (style "u"); one-species ones are left
+    # out — their only species is already there (Ж9)
+    for t in orders + list(families.values()):
+        if t["a"] != t["b"]:
+            units.append({"key": (lat_key(t["sci"]), 0, "~"), "hw": t["sci"], "nest": False,
+                          "lines": [[[t["sci"].upper(), "u"], [" " + num_range(list(range(t["a"], t["b"] + 1))), ""]]]})
     units.sort(key=lambda u: u["key"])
+    # repeated epithet (В1): «madagascariensis, Accipiter 3090 / — Alectroenas 1095»,
+    # one nest per epithet
+    merged: list[dict] = []
+    for u in units:
+        k = u["key"]
+        prev = merged[-1] if merged else None
+        if (k[1] == 1 and prev is not None and prev["key"][1] == 1
+                and prev["key"][0] == k[0]):
+            line = u["lines"][0]
+            prev["lines"].append([["—" + NBSP, ""], line[2], line[3]])
+            prev["nest"] = True
+        else:
+            merged.append(dict(u, lines=[list(l) for l in u["lines"]]))
+    units = merged
     for u in units:
         u["letter"] = en_letter(u["hw"])
     return units
@@ -566,10 +629,11 @@ def en_tokens(unit: dict) -> list[list]:
 
 
 CONT_RU, CONT_EN = "(продолж.)", "(cont.)"
+EN_COLUMN_MAX_EXTRA = 8      # pages: the column English index may cost this much more
 
 
-def cont_runs(head: str, word: str) -> list:
-    return [[head, "b"], [" " + word, ""]]
+def cont_runs(head: str, word: str, style: str = "b") -> list:
+    return [[head, style], [" " + word, ""]]
 
 
 def c2_paginate(units: list[dict], cont) -> list[dict]:
@@ -722,7 +786,8 @@ def prepare_c2(full: bool) -> dict:
     # ---- indexes: entries -> measure -> lines -> units -> pages
     raw = {"ru": c2_idx_ru(sel, sp, orders, families),
            "en": c2_idx_en(sel, sp, families),
-           "sci": c2_idx_sci(sel, sp, orders, families)}
+           "sci": c2_idx_sci(sel, sp, orders, families),
+           "encol": c2_idx_en_col(sel, sp, families)}
     # soft hyphens only in Russian words too long for a line
     shy_list, shy_idx = soft_hyphen_maps([s["ru"] for s in sp if s["ru"]] + [a for s in sp for a in s["alt"]])
     for s in sp:
@@ -757,6 +822,7 @@ def prepare_c2(full: bool) -> dict:
     # wider than the column («— южноамериканский | 1499»)
     sci_ids = {id(l) for u in raw["sci"] for l in u["lines"]}
     ru_ids = {id(l) for u in raw["ru"] for l in u["lines"]}
+    encol_ids = {id(l) for u in raw["encol"] for l in u["lines"]}
     relaxed = []
     for l, nw in zip(measure_lines, c2_measure.natural):
         if nw <= IDX_COL_W - 2:
@@ -764,8 +830,18 @@ def prepare_c2(full: bool) -> dict:
         if id(l) in sci_ids:
             for r in l:
                 r[0] = r[0].replace("," + NBSP, ", ")
-                if r[0].startswith(NBSP) and r[0][1:].isdigit() and len(l[2][0]) >= 15:
+                if r[0].startswith(NBSP) and r[0][1:].isdigit() and max(len(x[0]) for x in l if x[1] == "i") >= 15:
                     r[0] = " " + r[0][1:]        # «Catamblyrhynchus | 10990»
+            relaxed.append(l)
+        elif id(l) in encol_ids:
+            for r in l:
+                t = r[0]
+                lead = "—" + NBSP if t.startswith("—" + NBSP) else ""
+                body = t[len(lead):].replace(NBSP, " ")
+                name, sp_, num = body.rpartition(" ")
+                if sp_ and num.replace(",", "").isdigit():
+                    body = name + NBSP + num          # the number stays with the last word
+                r[0] = lead + body
             relaxed.append(l)
         elif id(l) in ru_ids:
             for r in l:
@@ -782,8 +858,9 @@ def prepare_c2(full: bool) -> dict:
     # second pass: the English lines as broken here (a single long word may
     # still wrap at its hyphen) and the «(продолж.)» lines of every nest
     en_lines = [(l, f) for u in raw["en"] if u["kind"] == "run" for l, f in zip(u["lines"], u["flags"])]
-    conts = {k: {u["hw"]: cont_runs(u["hw"], word) for u in raw[k] if u.get("nest")}
-             for k, word in (("ru", CONT_RU), ("en", CONT_EN))}
+    conts = {k: {u["hw"]: cont_runs(u["hw"], word, st) for u in raw[k] if u.get("nest")}
+             for k, word, st in (("ru", CONT_RU, "b"), ("en", CONT_EN, "b"), ("sci", CONT_RU, "i"),
+                                 ("encol", CONT_EN, "b"))}
     batch = [{"r": l, **({"c": f} if f else {})} for l, f in en_lines]
     batch += [{"r": l, **({"ru": True} if id(l) in ru_ids else {})} for l in relaxed]
     batch += [{"r": r, "ru": k == "ru"} for k in conts for r in conts[k].values()]
@@ -799,8 +876,18 @@ def prepare_c2(full: bool) -> dict:
     idx = {
         "ru": c2_paginate(c2_units(raw["ru"], heights, ru=True), lambda hw: (cont_runs(hw, CONT_RU), cont_h[("ru", hw)])),
         "en": c2_paginate(c2_units(raw["en"], heights), lambda hw: (cont_runs(hw, CONT_EN), cont_h[("en", hw)])),
-        "sci": c2_paginate(c2_units(raw["sci"], heights), None),
+        "sci": c2_paginate(c2_units(raw["sci"], heights), lambda hw: (cont_runs(hw, CONT_RU, "i"), cont_h[("sci", hw)])),
     }
+    # English index: run-in nests (H&M) or a column like the Russian one. The
+    # column is chosen unless it costs more than EN_COLUMN_MAX_EXTRA pages.
+    en_col = c2_paginate(c2_units(raw["encol"], heights), lambda hw: (cont_runs(hw, CONT_EN), cont_h[("encol", hw)]))
+    en_cmp = {"run_in": len(idx["en"]), "column": len(en_col)}
+    if len(en_col) - len(idx["en"]) <= EN_COLUMN_MAX_EXTRA:
+        idx["en"], en_cmp["chosen"] = en_col, "column"
+    else:
+        en_cmp["chosen"] = "run_in"
+    print(f"  C2: английский указатель: в подбор {en_cmp['run_in']} полос, столбцом {en_cmp['column']} — "
+          f"выбран {'столбец' if en_cmp['chosen'] == 'column' else 'подбор'}")
     n = len(sp)
     meta = {
         "full": full,
@@ -822,6 +909,7 @@ def prepare_c2(full: bool) -> dict:
         "sample_orders": " и ".join(f"{(o['ru'] or o['sci']).lower()} ({o['sci']})" for o in orders),
     }
     meta["stats"] = c2_stats(species, taxa)
+    meta["en_style"] = en_cmp
     meta["sample_orders_ru"] = " и ".join((o["ru"] or o["sci"]).lower() for o in orders)
     meta["n_orders_word"] = {1: "одного отряда", 2: "двух отрядов", 3: "трёх отрядов"}.get(len(orders), f"{len(orders)} отрядов")
     data_tables = c2_tables(species, taxa, sp, sel, full)
@@ -843,6 +931,9 @@ OVERRIDE_REASON_RU = {
 def override_reason(sci: str, note: str) -> str:
     if sci in OVERRIDE_REASON_RU:
         return OVERRIDE_REASON_RU[sci]
+    # a Russian note: «"Желтопоясный атилла" — опечатка в ЗММУ/IOC 15.2: …» -> the reason
+    if CYR_TEXT.search(re.sub(r'"[^"]*"', "", note)):
+        return re.sub(r'^"[^"]*"\s*—\s*', "", note).strip()
     if "Latin" in note:
         return "в IOC 15.2 латинская буква внутри русского слова"
     if "typo" in note:
@@ -850,6 +941,9 @@ def override_reason(sci: str, note: str) -> str:
     if "missing in Wikidata" in note:
         return "названия нет ни в Wikidata, ни в таблицах ЗММУ"
     return note
+
+
+CYR_TEXT = re.compile(r"[а-яё]{3,}")
 
 
 def override_before(value: str, note: str) -> str:
@@ -887,9 +981,10 @@ def c2_tables(species, taxa, sp, sel, full) -> dict:
                "latin": bool(lat_c.search(before)), "why": override_reason(o["sci"], o["note"])}
         if o["sci"] in by_sci:
             fixes.append(row)
-        elif "Formed by compiler" in o["note"] or "ru.wikipedia" in o["note"]:
+        elif ("составител" in o["note"] or "Formed by compiler" in o["note"]
+              or "ru.wikipedia" in o["note"]):
             # names of orders / families formed or chosen by the compiler: the
-            # note (in English, from overrides.csv) is shown as is, without URLs
+            # note from overrides.csv is shown as is, without URLs
             note = re.sub(r"\s*\(?https?://\S+?\)?(?=[\s;,)]|$)", "", o["note"]).replace("(: ", "(")
             note = re.sub(r"ru\.wikipedia:\s*(?=[,;)])", "ru.wikipedia", note)
             taxa_formed.append({"sci": o["sci"], "after": o["value"], "why": note.strip()})
@@ -1066,7 +1161,8 @@ def c2_previews(pdf: Path, marks: dict, full: bool) -> list[Path]:
         # passerines: a spread around Pomatorhinus montanus and the index pages
         picks = {"spread": [pg.get("probe", ls) - (pg.get("probe", ls) % 2), pg.get("probe", ls) - (pg.get("probe", ls) % 2) + 1],
                  "idx-ru": [pg["idx-ru-start"] + 20], "idx-en": [pg["idx-en-start"] + 10],
-                 "idx-sci": [pg["idx-sci-start"] + 10]}
+                 "idx-sci": [pg["idx-sci-start"] + 10],
+                 "toc": list(range(pg["toc"], pg["intro"])), "idx-en-first": [pg["idx-en-start"]]}
     else:
         picks = {
             "title": [pg["title"]], "imprint": [pg["imprint"]], "contr": [pg["contr"]],

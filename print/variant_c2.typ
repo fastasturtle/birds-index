@@ -68,6 +68,9 @@
 // (<pgend>), the head reads it at the page top: first and last species of the page.
 #let spc = counter("species")
 #let pgend = context [#metadata((page: here().page(), n: spc.get().first())) <pgend>]
+// Left page: the order of the first entry of the page; right page: the family
+// of the first entry. If a new order begins on the page, both name it instead
+// (its first family on the right page).
 #let list-head = context {
   let p = here().page()
   let top = spc.get().first()
@@ -78,11 +81,12 @@
   let a = SP.at(top)
   let b = SP.at(last - 1)
   let range = [#a.n–#b.n]
+  let new-ord = data.orders.find(o => o.a > a.n and o.a <= b.n)
   if calc.even(p) {
-    let o = data.orders.find(o => o.sci == a.o)
+    let o = if new-ord != none { new-ord } else { data.orders.find(o => o.sci == a.o) }
     head-row(range, [#ord-ru(o) · #o.sci])
   } else {
-    let f = data.families.at(b.f)
+    let f = data.families.at(if new-ord != none { SP.at(new-ord.a - 1).f } else { a.f })
     head-row(range, if f.ru != none [#f.ru · #f.sci] else [#f.sci])
   }
 }
@@ -138,8 +142,9 @@
   })
 }
 
-#let family-head(f, first) = block(sticky: true, above: if first { 0pt } else { 7pt }, below: 4pt,
+#let family-head(f, first, specimen: false) = block(sticky: true, above: if first { 0pt } else { 7pt }, below: 4pt,
   width: 100%, stroke: if first { none } else { (top: 0.3pt) }, inset: (top: if first { 0pt } else { 3.5pt }), {
+  if not specimen { mark("fam-" + f.sci) }
   set par(hanging-indent: 1em)
   if f.ru != none {
     par[#text(size: 9pt, weight: "bold", f.ru)#h(0.6em)#text(size: 8.5pt, f.sci)]
@@ -240,31 +245,42 @@
   ]
 ]
 
-// p. 4 — contents
+// p. 4 — contents: orders and their families with ranges of species numbers
+// and pages, dot leaders; 8/10 pt in two columns
 #page(header: plain-head[Оглавление])[
   #mark("toc")
-  #prose(size: 9pt, lead: 0.5em, sp: 0.5em)[
+  #prose(size: 8pt)[
     #align(center, text(size: 12pt, weight: "bold")[Оглавление])
-    #v(5mm)
-    #set par(justify: false)
-    #context {
-      let row(a, r, p, bold: false, ind: 0pt) = (
-        pad(left: ind, if bold { strong(a) } else { a }), align(right, r), align(right, p))
-      let rows = ()
-      rows += row([Введение], [], page-of("intro"))
-      rows += row([Как пользоваться книгой. Условные обозначения], [], page-of("howto"))
-      rows += row([Систематический список], [№ #rng(1, meta.count_fmt)], page-of("list-start"), bold: true)
-      for (k, o) in data.orders.enumerate() {
-        rows += row([#ord-ru(o)#if o.ru != none [ · #o.sci]], rng(o.a, o.b), page-of("order-" + str(k + 1)), ind: 1.2em)
-      }
-      rows += row([Алфавитный указатель русских названий], [], page-of("idx-ru-start"), bold: true)
-      rows += row([Алфавитный указатель английских названий], [], page-of("idx-en-start"), bold: true)
-      rows += row([Алфавитный указатель латинских названий], [], page-of("idx-sci-start"), bold: true)
-      rows += row([Источники], [], page-of("sources"))
-      set text(size: if data.orders.len() > 30 { 8.5pt } else { 9pt })
-      grid(columns: (1fr, auto, 10mm), column-gutter: 1em, row-gutter: if data.orders.len() > 30 { 0.42em } else { 0.6em }, ..rows)
-    }
+    #v(4mm)
   ]
+  #set text(size: 8pt, top-edge: 7.5pt, bottom-edge: -2.5pt)
+  #set par(leading: 0pt, spacing: 0pt, justify: false)
+  #context {
+    let pages = query(<sec>).fold((:), (acc, m) => { if m.value.name not in acc { acc.insert(m.value.name, m.value.page) }; acc })
+    let pg(name) = str(pages.at(name, default: "?"))
+    // One paragraph: the name wraps with a hanging indent; the leader dots,
+    // the range of numbers and the page always end the last line. The space
+    // before the name's last word is no-break-glued to the leaders via a
+    // word joiner, so the tail never starts a line on its own.
+    let line(body, r, p, ind: 0pt, bold: false, above: 0pt) = block(above: above, below: 0pt, breakable: false,
+      pad(left: ind, par(hanging-indent: 1em, linebreaks: "simple")[#if bold { strong(body) } else { body }#sym.wj#box(width: 1fr, repeat(gap: 1pt)[.])#sym.wj#if r != [] { box[#h(2.5pt)#text(size: 7pt, r)] }#sym.wj#box(width: 5.5mm, align(right, p))]))
+    columns(2, gutter: 5mm, {
+      line([Введение], [], pg("intro"))
+      line([Как пользоваться книгой], [], pg("howto"))
+      line([Систематический список], [№ #rng(1, meta.count_fmt)], pg("list-start"), bold: true, above: 4pt)
+      for (k, o) in data.orders.enumerate() {
+        block(sticky: true, above: 2.5pt, below: 0pt,
+          line([#ord-ru(o)#if o.ru != none [ · #o.sci]], rng(o.a, o.b), pg("order-" + str(k + 1)), bold: true))
+        for f in data.families.values().filter(f => f.a >= o.a and f.b <= o.b) {
+          line([#if f.ru != none [#f.ru · ]#f.sci], rng(f.a, f.b), pg("fam-" + f.sci), ind: 1em)
+        }
+      }
+      line([Алфавитный указатель русских названий], [], pg("idx-ru-start"), bold: true, above: 6pt)
+      line([Алфавитный указатель английских названий], [], pg("idx-en-start"), bold: true)
+      line([Алфавитный указатель латинских названий], [], pg("idx-sci-start"), bold: true)
+      line([Источники], [], pg("sources"))
+    })
+  }
 ]
 
 // p. 5 — introduction
@@ -351,7 +367,7 @@
         set text(size: 8.5pt, top-edge: 7pt, bottom-edge: -2.6pt)
         set par(leading: 0pt, spacing: 0pt, justify: false, first-line-indent: 0pt)
         let f = data.families.at(specimen.f)
-        family-head(f, true)
+        family-head(f, true, specimen: true)
         entry(specimen)
         spc.update(0)
       }),
@@ -382,12 +398,14 @@
       ..item(text(weight: "bold", emph[Genus species]), [латинское название полужирным курсивом на месте
         русского: русское название отсутствует.]),
       ..item([(серый гусь)], [альтернативное русское название.]),
-      ..item([†], [вид вымер после 1500 г. (категория МСОП EX «исчезнувшие»).]),
+      ..item([†], [вид вымер после 1500 г. (категория МСОП EX «исчезнувшие»). Знаки статуса стоят
+        в графе номера, слева от латинского названия.]),
       ..item([†?], [вид, возможно, вымер: давно не отмечался, но вымирание не подтверждено
         (категория МСОП CR(PE) «находящиеся на грани полного исчезновения (возможно, исчезнувшие)»).]),
       ..item([‡], [вид исчез в дикой природе и сохраняется только в неволе (категория МСОП EW
         «исчезнувшие в дикой природе»).]),
       ..item([Linnaeus, 1758], [автор и год описания вида; «&» соединяет соавторов.]),
+      ..item([Harrison et al., 2013], [у описаний четырёх и более авторов назван только первый.]),
       ..item([*52*, 52], [в указателях: номер основной статьи — полужирным; номер при альтернативном
         названии (набранном курсивом) — светлым.]),
       ..item([*гусь* — серый], [в русском указателе: ведущее слово гнезда полужирным, тире заменяет его
@@ -558,7 +576,7 @@
 #let in-full(n, shown) = if not meta.full and n != shown [Показаны виды выборки (#shown); в полной книге: #n.] else [Всего: #n.]
 
 #page(header: temp-head)[
-  #set text(size: 8pt, top-edge: 7.5pt, bottom-edge: -2.5pt, hyphenate: true)
+  #set text(size: 8pt, top-edge: 7.5pt, bottom-edge: -2.5pt, hyphenate: false)
   #set par(leading: 0pt, spacing: 0pt, justify: false)
   #mark("tables")
   #align(center, text(size: 12pt, weight: "bold")[Рабочие таблицы])
@@ -569,7 +587,7 @@
 
   #tsection([а) Ручные исправления названий], note: [Строки файла правок; «было» — название в исходном источнике
     (латинские буквы внутри русских слов отмечены «лат.»).])[
-    #ttable((7mm, 32mm, 30mm, 28mm, 1fr), ([№], [Латинское название], [Было], [Стало], [Причина]),
+    #ttable((9mm, 30mm, 29mm, 29mm, 1fr), ([№], [Латинское название], [Было], [Стало], [Причина]),
       T.fixes.map(r => (tnum(r.n), tsci(r.sci), [#r.before#if r.latin [ (лат.)]], r.after, r.why)).flatten(),
       al: (right, left, left, left, left))
     #v(2mm)
@@ -579,10 +597,10 @@
       T.taxa_fixes.map(r => (r.sci, r.before, r.after, r.why)).flatten())
     #if T.taxa_formed.len() > 0 {
       v(2mm)
-      emph[Названия отрядов и семейств, образованные составителем (обоснование — из файла правок, по-английски):]
+      emph[Названия отрядов и семейств, образованные составителем (обоснование — из файла правок):]
       v(1mm)
       ttable((32mm, 34mm, 1fr), ([Таксон], [Название], [Обоснование]),
-        T.taxa_formed.map(r => (r.sci, r.after, text(lang: "en", r.why))).flatten())
+        T.taxa_formed.map(r => (r.sci, r.after, r.why)).flatten())
     }
   ]
 
