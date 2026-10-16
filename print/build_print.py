@@ -391,7 +391,26 @@ def c2_species(sel: list[dict]) -> list[dict]:
             # eBird name differing from ru: an extra index entry only (not in the list)
             "eb": ru_book_fn(r["ru_ebird"], r.get("en"))[0] if r.get("ru_ebird") else None,
             "x": EXT_CODE.get(r.get("extinct")) if r.get("extinct") else None,
+            # former combination by another world list (genus or epithet changed):
+            # the line «= Anas formosa» under the Latin name
+            # (breakable between genus and epithet: «= Cryptoplectron | erythrorhynchum»)
+            "p": r.get("sci_book_prev"),
         })
+    return out
+
+
+PREV_KINDS = ("genus", "genus_ending", "epithet")   # sci_prev kinds that go to the book
+
+
+def prev_names(r: dict) -> list[tuple[str, str]]:
+    """Former combinations of a species for the Latin index: (name, kind) of the
+    sci_prev entries of kind genus / genus_ending / epithet (spelling and
+    concept are data only)."""
+    out, seen = [], set()
+    for p in r.get("sci_prev") or []:
+        if p["kind"] in PREV_KINDS and " " in p["name"] and p["name"] != r["sci"] and p["name"] not in seen:
+            seen.add(p["name"])
+            out.append((p["name"], p["kind"]))
     return out
 
 
@@ -516,19 +535,25 @@ def c2_idx_en_col(sel, sp, families) -> list[dict]:
 def c2_idx_sci(sel, sp, orders, families) -> list[dict]:
     """Latin index: «epithet, Genus 37» inverted; genera bold italic with their
     numbers; families and orders in capitals with a range; former combinations
-    (ioc_sci ≠ sci) in italics with an arrow."""
+    (sci_prev, kinds genus / genus_ending / epithet) in italics with an arrow:
+    «formosa, Anas → Sibirionetta formosa 123». Entries with the same epithet
+    form one nest: «formosa, Anas → Sibirionetta formosa 123 / — Sibirionetta 123»."""
     units = []
     genera: dict[str, list[int]] = {}
     for r, s in zip(sel, sp):
         genera.setdefault(s["g"], []).append(s["n"])
-        units.append({"key": (lat_key(s["e"]), 1, lat_key(s["g"])), "hw": s["e"], "nest": False,
+        units.append({"key": (lat_key(s["e"]), 1, lat_key(s["g"]), 0), "hw": s["e"], "nest": False,
                       "lines": [[[s["e"], "i"], ["," + NBSP, ""], [s["g"], "i"], [NBSP + str(s["n"]), ""]]]})
-        old = r.get("ioc_sci")
-        if old and old != r["sci"] and " " in old:
+        for old, kind in prev_names(r):
             og, oe = old.split(" ", 1)
-            units.append({"key": (lat_key(oe), 2, lat_key(og)), "hw": oe, "nest": False,
-                          "lines": [[[oe, "i"], [", ", ""], [og, "i"], [" → ", ""],
-                                     [s["g"] + NBSP + s["e"], "i"], [NBSP + str(s["n"]), ""]]]})
+            # only the genus changed (the epithet is the same or differs only in
+            # its ending): «bonariensis, Pipraeidea → Rauenia 11032»; a changed
+            # epithet: the whole current name. The arrow stays with the former
+            # name; the current name and its number are unbreakable
+            target = s["g"] if kind in ("genus", "genus_ending") else s["g"] + NBSP + s["e"]
+            units.append({"key": (lat_key(oe), 1, lat_key(og), 1), "hw": oe, "nest": False, "prev": True,
+                          "lines": [[[oe, "i"], ["," + NBSP, ""], [og, "i"], [NBSP + "→ ", ""],
+                                     [target, "i"], [NBSP + str(s["n"]), ""]]]})
     for g, ns in genera.items():
         units.append({"key": (lat_key(g), 0, ""), "hw": g, "nest": False,
                       "lines": [[[g, "bi"], [" " + num_range(ns), ""]]]})
@@ -540,7 +565,7 @@ def c2_idx_sci(sel, sp, orders, families) -> list[dict]:
                           "lines": [[[t["sci"].upper(), "u"], [" " + num_range(list(range(t["a"], t["b"] + 1))), ""]]]})
     units.sort(key=lambda u: u["key"])
     # repeated epithet (В1): «madagascariensis, Accipiter 3090 / — Alectroenas 1095»,
-    # one nest per epithet
+    # one nest per epithet, former combinations included
     merged: list[dict] = []
     for u in units:
         k = u["key"]
@@ -548,7 +573,7 @@ def c2_idx_sci(sel, sp, orders, families) -> list[dict]:
         if (k[1] == 1 and prev is not None and prev["key"][1] == 1
                 and prev["key"][0] == k[0]):
             line = u["lines"][0]
-            prev["lines"].append([["—" + NBSP, ""], line[2], line[3]])
+            prev["lines"].append([["—" + NBSP, ""]] + line[2:])
             prev["nest"] = True
         else:
             merged.append(dict(u, lines=[list(l) for l in u["lines"]]))
@@ -834,10 +859,32 @@ def prepare_c2(full: bool) -> dict:
     ru_ids = {id(l) for u in raw["ru"] for l in u["lines"]}
     encol_ids = {id(l) for u in raw["encol"] for l in u["lines"]}
     relaxed = []
-    for l, nw in zip(measure_lines, c2_measure.natural):
+    natural = c2_measure.natural
+    # former combinations too wide for the column: «formosa, Anas →» breaks
+    # after the arrow; the current binomial with its number stays whole unless
+    # it is itself wider than a continuation line (then it breaks between its words)
+    wide_prev = [l for l, nw in zip(measure_lines, natural)
+                 if nw > IDX_COL_W - 2 and id(l) in sci_ids and any("→" in r[0] for r in l)]
+    tail_w, last_w = {}, {}
+    if wide_prev:
+        # widths of «Genus epithet 123» and of «epithet 123» alone
+        c2_measure([{"r": l[-2:]} for l in wide_prev]
+                   + [{"r": [[l[-2][0].split(NBSP)[-1], "i"], l[-1]]} for l in wide_prev])
+        ws_ = c2_measure.natural
+        tail_w = {id(l): w for l, w in zip(wide_prev, ws_)}
+        last_w = {id(l): w for l, w in zip(wide_prev, ws_[len(wide_prev):])}
+    for l, nw in zip(measure_lines, natural):
         if nw <= IDX_COL_W - 2:
             continue
-        if id(l) in sci_ids:
+        if id(l) in tail_w:
+            for r in l:
+                r[0] = r[0].replace("," + NBSP, ", ")
+            if tail_w[id(l)] > IDX_WORD_MAX - 1:
+                l[-2][0] = l[-2][0].replace(NBSP, " ")
+            if last_w[id(l)] > IDX_WORD_MAX - 1:     # «aurantioatrocristatus | 4956»
+                l[-1][0] = " " + l[-1][0][1:]
+            relaxed.append(l)
+        elif id(l) in sci_ids:
             for r in l:
                 r[0] = r[0].replace("," + NBSP, ", ")
                 if r[0].startswith(NBSP) and r[0][1:].isdigit() and max(len(x[0]) for x in l if x[1] == "i") >= 15:
@@ -1051,6 +1098,14 @@ def c2_stats(species: list[dict], taxa: dict) -> dict:
     with open(REPO / "data/overrides.csv", encoding="utf-8") as fh:
         ov = list(csv.DictReader(fh))
     sci_species = {r["sci"] for r in species}
+    # manual corrections of species names (a «-» removes a wrong name: not a correction)
+    n_manual = sum(1 for o in ov if o["sci"] in sci_species and o["field"] == "ru" and o["value"].strip() != "-")
+    n_alt = sum(len(r.get("ru_alt") or []) for r in species)
+    n_eb = sum(1 for r in species if r.get("ru_ebird"))
+    n_missing = sum(1 for r in species if not r.get("ru"))
+    n_fallback = sum(1 for r in species if r.get("ru_status") == "ok_fallback")
+    VID_GEN = ("вида", "видов", "видов")
+    NAZV = ("название", "названия", "названий")
     taxa_no_ru = [t for t in taxa["orders"] + taxa["families"] if not t.get("ru")]
     return {
         "total": fmt_int(len(species)),
@@ -1059,8 +1114,8 @@ def c2_stats(species: list[dict], taxa: dict) -> dict:
         "ioc": fmt_int(src.get("ioc", 0)),
         "ebird": src.get("ebird", 0),
         "wikidata": src.get("wikidata", 0),
-        "manual": sum(1 for o in ov if o["sci"] in sci_species and o["field"] == "ru"),
-        "manual_word": NUM_WORDS.get(sum(1 for o in ov if o["sci"] in sci_species and o["field"] == "ru"), ""),
+        "manual": n_manual,
+        "manual_word": NUM_WORDS.get(n_manual, str(n_manual)),
         "taxa_manual": sum(1 for o in ov if o["sci"] not in sci_species and o["field"] == "ru"),
         "fallback": sum(1 for r in species if r.get("ru_status") == "ok_fallback"),
         "missing": sum(1 for r in species if not r.get("ru")),
@@ -1075,6 +1130,25 @@ def c2_stats(species: list[dict], taxa: dict) -> dict:
         "families_no_ru": sum(1 for t in taxa["families"] if not t.get("ru")),
         "taxa_no_ru": len(taxa_no_ru),
         "genera": fmt_int(len({r["sci"].split()[0] for r in species})),
+        # ready-made phrases with agreement (the note «О подготовке этого макета»)
+        "families_txt": count_txt(len(taxa["families"]), SEM),
+        "orders_txt": count_txt(len(taxa["orders"]), OTR),
+        "extinct_txt": count_txt(sum(1 for r in species if r.get("extinct") == "extinct"),
+                                 ("вымерший", "вымерших", "вымерших")),
+        "possibly_txt": count_txt(sum(1 for r in species if r.get("extinct") == "possibly_extinct"),
+                                  ("возможно вымерший", "возможно вымерших", "возможно вымерших")),
+        "ew_txt": count_txt(sum(1 for r in species if r.get("extinct") == "extinct_in_wild"),
+                            ("сохранившийся", "сохранившихся", "сохранившихся")),
+        "ioc_gen_txt": count_txt(src.get("ioc", 0), VID_GEN),
+        "fallback_txt": count_txt(n_fallback, NAZV),
+        "missing_gen_txt": count_txt(n_missing, VID_GEN),
+        "dups_txt": count_txt(len(dups), ("случай", "случая", "случаев")),
+        "manual_txt": count_txt(n_manual, NAZV),
+        "alt_txt": f"{fmt_int(n_alt)} " + plural(n_alt, "такое название", "таких названия", "таких названий"),
+        "ebird_gen_txt": count_txt(n_eb, VID_GEN),
+        # former combinations: species with the «= …» line, entries with an arrow
+        "prev_species": fmt_int(sum(1 for r in species if r.get("sci_book_prev"))),
+        "prev_names": fmt_int(sum(len(prev_names(r)) for r in species)),
     }
 
 

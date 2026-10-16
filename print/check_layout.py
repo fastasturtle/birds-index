@@ -11,6 +11,8 @@ Counts, on the systematic list (and the Russian index for hyphens):
   year        lines of the list that start with a lone year («, | 1832») ;
   cont1       index columns starting with «head (продолж.)» followed by a
               single line of that nest (from the pagination data);
+  arrow       index lines starting with the arrow «→» of a former combination
+              (the arrow must stay with the former name: «formosa, Anas →»);
   apostrophe  straight apostrophes ' anywhere in the PDF.
 Exit code 1 if any count except `soft` is non-zero.
 """
@@ -68,7 +70,7 @@ def check(pdf: Path, layout: dict, data: dict) -> tuple[dict, dict]:
         heads.add(f["sci"])
         if f["ru"]:
             heads.add(f["ru"].split()[0])
-    counts = {k: 0 for k in ("hyphen", "soft", "hanging", "year", "cont1", "apostrophe")}
+    counts = {k: 0 for k in ("hyphen", "soft", "hanging", "year", "cont1", "arrow", "apostrophe")}
     ex = defaultdict(list)
     for pno, ws in words(pdf):
         for w in ws:
@@ -100,6 +102,10 @@ def check(pdf: Path, layout: dict, data: dict) -> tuple[dict, dict]:
                         counts["hyphen"] += 1
                         ex["hyphen"].append(f"с. {pno}: {last}|{lines[i + 1][0][4]}")
             if kind != "list":
+                for l in lines:
+                    if l[0][4] == "→":
+                        counts["arrow"] += 1
+                        ex["arrow"].append(f"с. {pno}, кол. {c + 1}: «{' '.join(w[4] for w in l)}»")
                 continue
             if texts:
                 first = texts[0]
@@ -133,6 +139,7 @@ NAMES = {"hyphen": "автоматические переносы в русск�
          "hanging": "колонки списка, начинающиеся не со статьи и не с рубрики",
          "year": "строки, начинающиеся с года («, | год»)",
          "cont1": "продолжения гнезда из одной строки",
+         "arrow": "строки указателя, начинающиеся со стрелки «→»",
          "apostrophe": "прямые апострофы"}
 
 
