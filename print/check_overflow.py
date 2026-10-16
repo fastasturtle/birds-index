@@ -11,7 +11,9 @@ A word is a violation if
     runs into the gutter and merges with the word of the next column;
   * anywhere, it crosses the left/right edge of the type area or the bottom
     margin.
-Words are taken from `pdftotext -bbox` (poppler). Exit code 1 if anything is found.
+Words are taken from `pdftotext -bbox` (poppler). The labels of the thumb-index
+tabs (white text in the black tabs on the outer edge, beyond the type area) are
+skipped by their text and position. Exit code 1 if anything is found.
 """
 
 from __future__ import annotations
@@ -30,6 +32,11 @@ TOL = 0.3  # pt
 PUNCT_TOL = 2.5  # pt
 PUNCT = tuple(".,;:!?»)—–-")
 
+# thumb-index tabs of C2 (variant_c2.typ, TABS / TAB-W): label text and the
+# width of the tab inside the page, measured from the outer trim edge
+TAB_LABELS = {"СПИСОК", "РУССКИЙ", "ENGLISH", "LATINA"}
+TAB_W = 9 * MM
+
 PAGE_RE = re.compile(r'<page width="([\d.]+)" height="([\d.]+)">(.*?)</page>', re.S)
 WORD_RE = re.compile(r'<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">(.*?)</word>')
 
@@ -37,8 +44,17 @@ WORD_RE = re.compile(r'<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMa
 def words(pdf: Path):
     out = subprocess.run(["pdftotext", "-bbox", str(pdf), "-"], capture_output=True, text=True, check=True).stdout
     for pno, m in enumerate(PAGE_RE.finditer(out), 1):
+        W = float(m.group(1))
         ws = [(float(a), float(b), float(c), float(d), html.unescape(t)) for a, b, c, d, t in WORD_RE.findall(m.group(3))]
-        yield pno, ws
+        yield pno, [w for w in ws if not is_tab(w, pno, W)]
+
+
+def is_tab(w, pno: int, W: float) -> bool:
+    """A thumb-tab label: known text, entirely inside the tab at the outer edge."""
+    x0, _, x1, _, t = w
+    if t not in TAB_LABELS:
+        return False
+    return x0 >= W - TAB_W - TOL if pno % 2 else x1 <= TAB_W + TOL
 
 
 def check(pdf: Path, layout: dict) -> list[str]:

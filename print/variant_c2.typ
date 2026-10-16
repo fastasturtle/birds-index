@@ -63,6 +63,41 @@
 }
 #let plain-head(title) = head-row(none, title)
 
+// ------------------------------------------------------------ thumb index
+// Black tabs on the outer edge of the list and index pages, bled 3 mm past the
+// trim (Typst has no bleed box: the overhang is drawn but clipped to the page).
+// Four steps from 40 mm below the top, 22 mm apart; the same step on every page
+// of a section, so that it shows as a band on the fore-edge of the closed book.
+// Section pages are taken from the <sec> marks; apparatus pages get no tab.
+// check_overflow.py / check_layout.py skip the tab labels (TAB_LABELS there).
+#let TAB-W = 9mm
+#let TAB-BLEED = 3mm
+#let TAB-H = 16mm
+#let TAB-TOP = 40mm
+#let TAB-STEP = 22mm
+#let TABS = (("list", "СПИСОК"), ("idx-ru", "РУССКИЙ"), ("idx-en", "ENGLISH"), ("idx-sci", "LATINA"))
+#let thumb-tab = context {
+  let p = here().page()
+  let at(name) = {
+    let ms = query(<sec>).filter(m => m.value.name == name)
+    if ms.len() > 0 { ms.first().value.page } else { none }
+  }
+  for (i, (key, label)) in TABS.enumerate() {
+    let a = at(key + "-start")
+    let b = at(key + "-end")
+    if a != none and b != none and a <= p and p <= b {
+      let recto = calc.odd(p)
+      place(top + left, dx: if recto { page.width - TAB-W } else { -TAB-BLEED }, dy: TAB-TOP + i * TAB-STEP,
+        block(width: TAB-W + TAB-BLEED, height: TAB-H, fill: black,
+          inset: if recto { (right: TAB-BLEED) } else { (left: TAB-BLEED) },
+          align(center + horizon, rotate(if recto { -90deg } else { 90deg }, reflow: true,
+            text(size: 7pt, weight: "bold", fill: white, tracking: 0.06em,
+              top-edge: "cap-height", bottom-edge: "baseline", label)))))
+    }
+  }
+}
+#set page(foreground: thumb-tab)
+
 // ------------------------------------------------------------ list: running heads
 // Counter `spc` is stepped by every entry; the page foot records its value
 // (<pgend>), the head reads it at the page top: first and last species of the page.
