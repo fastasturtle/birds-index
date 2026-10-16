@@ -15,10 +15,10 @@
 |---|---|
 | Total species (AviList) | 11131 |
 | Russian name present | 10728 |
-| — from IOC | 10649 |
+| — from IOC | 10637 |
 | — from eBird | 69 |
 | — from Wikidata | 4 |
-| — manual override | 6 |
+| — manual override | 18 |
 | Russian name missing | 403 |
 | Extinct | 151 |
 | Extinct in the wild | 5 |
@@ -33,7 +33,7 @@
 | Species with `ru_alt` | 41 |
 | `ru_alt` names in total | 41 |
 | `ru_alt` equal to another species' `ru` | 0 |
-| Distinct `ru_head` | 1228 |
+| Distinct `ru_head` | 1226 |
 | `ru_head` doubtful (auto) | 15 |
 | `ru_head` manual | 0 |
 | `ru_book` with the capital kept | 69 |
